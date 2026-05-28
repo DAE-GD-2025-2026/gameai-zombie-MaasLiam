@@ -2,6 +2,7 @@
 
 #include "AIController.h"
 #include "GameFramework/Pawn.h"
+#include "StudentPerceptor.h"
 
 UZombieAgentBrainComponent::UZombieAgentBrainComponent()
 {
@@ -11,6 +12,8 @@ UZombieAgentBrainComponent::UZombieAgentBrainComponent()
 void UZombieAgentBrainComponent::BeginPlay()
 {
 	Super::BeginPlay();
+
+	Perceptor = GetOwner()->FindComponentByClass<UStudentPerceptor>();
 }
 
 void UZombieAgentBrainComponent::TickComponent(
@@ -33,6 +36,12 @@ void UZombieAgentBrainComponent::TickComponent(
 
 void UZombieAgentBrainComponent::UpdateState()
 {
+	if (Perceptor && Perceptor->SeenItems.Num() > 0)
+	{
+		CurrentState = EZombieAgentState::SeekItem;
+		return;
+	}
+
 	CurrentState = EZombieAgentState::Explore;
 }
 
@@ -45,6 +54,9 @@ void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
 		break;
 
 	case EZombieAgentState::SeekItem:
+		ExecuteSeekItem();
+		break;
+
 	case EZombieAgentState::Flee:
 	case EZombieAgentState::Fight:
 	case EZombieAgentState::UseItem:
@@ -95,6 +107,79 @@ void UZombieAgentBrainComponent::ExecuteExplore(float DeltaTime)
 		FColor::Green,
 		TEXT("Explore: moving to random location")
 	);
+}
+
+void UZombieAgentBrainComponent::ExecuteSeekItem()
+{
+	AActor* ClosestItem = GetClosestItem();
+
+	if (!ClosestItem)
+	{
+		return;
+	}
+
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (!OwnerPawn)
+	{
+		return;
+	}
+
+	AAIController* AIController = Cast<AAIController>(OwnerPawn->GetController());
+	if (!AIController)
+	{
+		return;
+	}
+
+	AIController->MoveToActor(
+		ClosestItem,
+		100.f,
+		true,
+		true,
+		true,
+		nullptr,
+		true
+	);
+
+	GEngine->AddOnScreenDebugMessage(
+		-1,
+		1.f,
+		FColor::Orange,
+		TEXT("Seeking Item")
+	);
+}
+
+AActor* UZombieAgentBrainComponent::GetClosestItem() const
+{
+	if (!Perceptor)
+	{
+		return nullptr;
+	}
+
+	AActor* ClosestItem = nullptr;
+	float ClosestDistance = FLT_MAX;
+
+	const FVector OwnerLocation = GetOwner()->GetActorLocation();
+
+	for (AActor* Item : Perceptor->SeenItems)
+	{
+		if (!IsValid(Item))
+		{
+			continue;
+		}
+
+		const float Distance = FVector::Dist(
+			OwnerLocation,
+			Item->GetActorLocation()
+		);
+
+		if (Distance < ClosestDistance)
+		{
+			ClosestDistance = Distance;
+			ClosestItem = Item;
+		}
+	}
+
+	return ClosestItem;
 }
 
 FVector UZombieAgentBrainComponent::GetRandomExploreLocation() const

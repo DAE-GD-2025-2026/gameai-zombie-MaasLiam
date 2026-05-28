@@ -4,6 +4,8 @@
 #include "Components/ActorComponent.h"
 #include "ZombieAgentBrainComponent.generated.h"
 
+class UStudentPerceptor;
+
 UENUM(BlueprintType)
 enum class EZombieAgentState : uint8
 {
@@ -28,13 +30,21 @@ public:
 private:
 	EZombieAgentState CurrentState = EZombieAgentState::Explore;
 
+	UPROPERTY()
+	UStudentPerceptor* Perceptor = nullptr;
+
 	float TimeSinceLastExploreMove = 0.f;
 	float ExploreMoveInterval = 3.f;
 	float ExploreRadius = 1200.f;
 
 	void UpdateState();
+
 	void ExecuteCurrentState(float DeltaTime);
+
 	void ExecuteExplore(float DeltaTime);
+	void ExecuteSeekItem();
+
+	AActor* GetClosestItem() const;
 
 	FVector GetRandomExploreLocation() const;
 	FString GetStateName() const;
