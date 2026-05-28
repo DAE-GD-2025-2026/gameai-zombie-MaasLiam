@@ -23,4 +23,16 @@ public:
 
 	UFUNCTION()
 	virtual void OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
+	
+	UPROPERTY(BlueprintReadOnly)
+	TArray<AActor*> SeenZombies;
+
+	UPROPERTY(BlueprintReadOnly)
+	TArray<AActor*> SeenItems;
+
+	UPROPERTY(BlueprintReadOnly)
+	TArray<AActor*> SeenHouses;
+
+	UPROPERTY(BlueprintReadOnly)
+	TArray<AActor*> SeenPurgeZones;
 };
