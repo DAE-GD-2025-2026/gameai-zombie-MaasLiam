@@ -14,7 +14,9 @@ void UZombieAgentBrainComponent::BeginPlay()
 	Super::BeginPlay();
 
 	Perceptor = GetOwner()->FindComponentByClass<UStudentPerceptor>();
-	InventoryComponent = FindInventoryComponent();
+	InventoryComponent = FindComponentByNamePart(TEXT("Inventory"));
+	HealthComponent = FindComponentByNamePart(TEXT("Health"));
+	StaminaComponent = FindComponentByNamePart(TEXT("Stamina"));
 }
 
 void UZombieAgentBrainComponent::TickComponent(
@@ -37,6 +39,12 @@ void UZombieAgentBrainComponent::TickComponent(
 
 void UZombieAgentBrainComponent::UpdateState()
 {
+	if (ShouldUseItem())
+	{
+		CurrentState = EZombieAgentState::UseItem;
+		return;
+	}
+
 	AActor* ClosestZombie = GetClosestZombie();
 
 	if (ClosestZombie)
@@ -81,9 +89,13 @@ void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
 	case EZombieAgentState::SeekItem:
 		ExecuteSeekItem();
 		break;
-		
+
 	case EZombieAgentState::Flee:
 		ExecuteFlee();
+		break;
+
+	case EZombieAgentState::UseItem:
+		ExecuteUseItem();
 		break;
 
 	default:
@@ -150,11 +162,7 @@ void UZombieAgentBrainComponent::ExecuteSeekItem()
 void UZombieAgentBrainComponent::ExecuteFlee()
 {
 	AActor* ClosestZombie = GetClosestZombie();
-
-	if (!ClosestZombie)
-	{
-		return;
-	}
+	if (!ClosestZombie) return;
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
 	if (!OwnerPawn) return;
@@ -162,10 +170,8 @@ void UZombieAgentBrainComponent::ExecuteFlee()
 	AAIController* AIController = Cast<AAIController>(OwnerPawn->GetController());
 	if (!AIController) return;
 
-	const FVector FleeTarget = GetFleeLocation(ClosestZombie);
-
 	AIController->MoveToLocation(
-		FleeTarget,
+		GetFleeLocation(ClosestZombie),
 		100.f,
 		true,
 		true,
@@ -181,6 +187,19 @@ void UZombieAgentBrainComponent::ExecuteFlee()
 		FColor::Red,
 		TEXT("FLEEING FROM ZOMBIE")
 	);
+}
+
+void UZombieAgentBrainComponent::ExecuteUseItem()
+{
+	if (TryUseInventoryItem())
+	{
+		GEngine->AddOnScreenDebugMessage(
+			-1,
+			2.f,
+			FColor::Green,
+			TEXT("Used inventory item")
+		);
+	}
 }
 
 AActor* UZombieAgentBrainComponent::GetClosestItem() const
@@ -209,22 +228,15 @@ AActor* UZombieAgentBrainComponent::GetClosestItem() const
 
 AActor* UZombieAgentBrainComponent::GetClosestZombie() const
 {
-	if (!Perceptor)
-	{
-		return nullptr;
-	}
+	if (!Perceptor) return nullptr;
 
 	AActor* ClosestZombie = nullptr;
 	float ClosestDistance = FLT_MAX;
-
 	const FVector OwnerLocation = GetOwner()->GetActorLocation();
 
 	for (AActor* Zombie : Perceptor->SeenZombies)
 	{
-		if (!IsValid(Zombie))
-		{
-			continue;
-		}
+		if (!IsValid(Zombie)) continue;
 
 		const float Distance = FVector::Dist(
 			OwnerLocation,
@@ -241,14 +253,19 @@ AActor* UZombieAgentBrainComponent::GetClosestZombie() const
 	return ClosestZombie;
 }
 
-UActorComponent* UZombieAgentBrainComponent::FindInventoryComponent() const
+UActorComponent* UZombieAgentBrainComponent::FindComponentByNamePart(const FString& NamePart) const
 {
 	TArray<UActorComponent*> Components;
 	GetOwner()->GetComponents(Components);
 
 	for (UActorComponent* Component : Components)
 	{
-		if (Component && Component->GetName().Contains(TEXT("Inventory")))
+		if (!Component) continue;
+
+		if (
+			Component->GetName().Contains(NamePart) ||
+			Component->GetClass()->GetName().Contains(NamePart)
+		)
 		{
 			return Component;
 		}
@@ -263,7 +280,7 @@ bool UZombieAgentBrainComponent::TryPickupItem(AActor* ItemActor)
 
 	const float DistanceToItem = FVector::Dist(
 		GetOwner()->GetActorLocation(),
-		ItemActor->GetActorLocation()	
+		ItemActor->GetActorLocation()
 	);
 
 	const float AllowedPickupDistance = GetPickupRange() + 75.f;
@@ -322,6 +339,51 @@ bool UZombieAgentBrainComponent::TryGrabItemInSlot(int32 SlotIndex, AActor* Item
 	return Params.ReturnValue;
 }
 
+bool UZombieAgentBrainComponent::ShouldUseItem() const
+{
+	const int CurrentHealth = GetCurrentHealth();
+	const float CurrentStamina = GetCurrentStamina();
+
+	return CurrentHealth <= LowHealthThreshold || CurrentStamina <= LowStaminaThreshold;
+}
+
+bool UZombieAgentBrainComponent::TryUseInventoryItem()
+{
+	const int32 Capacity = GetInventoryCapacity();
+
+	for (int32 SlotIndex = 0; SlotIndex < Capacity; ++SlotIndex)
+	{
+		if (TryUseItemInSlot(SlotIndex))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool UZombieAgentBrainComponent::TryUseItemInSlot(int32 SlotIndex)
+{
+	if (!InventoryComponent) return false;
+
+	UFunction* UseFunction = InventoryComponent->FindFunction(TEXT("UseItem"));
+	if (!UseFunction) return false;
+
+	struct FUseItemParams
+	{
+		int32 SlotIdx;
+		bool ReturnValue;
+	};
+
+	FUseItemParams Params;
+	Params.SlotIdx = SlotIndex;
+	Params.ReturnValue = false;
+
+	InventoryComponent->ProcessEvent(UseFunction, &Params);
+
+	return Params.ReturnValue;
+}
+
 float UZombieAgentBrainComponent::GetPickupRange() const
 {
 	if (!InventoryComponent) return 100.f;
@@ -362,6 +424,46 @@ int32 UZombieAgentBrainComponent::GetInventoryCapacity() const
 	return Params.ReturnValue;
 }
 
+int UZombieAgentBrainComponent::GetCurrentHealth() const
+{
+	if (!HealthComponent) return 10;
+
+	UFunction* HealthFunction = HealthComponent->FindFunction(TEXT("GetHealth"));
+	if (!HealthFunction) return 10;
+
+	struct FHealthParams
+	{
+		int ReturnValue;
+	};
+
+	FHealthParams Params;
+	Params.ReturnValue = 10;
+
+	HealthComponent->ProcessEvent(HealthFunction, &Params);
+
+	return Params.ReturnValue;
+}
+
+float UZombieAgentBrainComponent::GetCurrentStamina() const
+{
+	if (!StaminaComponent) return 10.f;
+
+	UFunction* StaminaFunction = StaminaComponent->FindFunction(TEXT("GetCurrentStamina"));
+	if (!StaminaFunction) return 10.f;
+
+	struct FStaminaParams
+	{
+		float ReturnValue;
+	};
+
+	FStaminaParams Params;
+	Params.ReturnValue = 10.f;
+
+	StaminaComponent->ProcessEvent(StaminaFunction, &Params);
+
+	return Params.ReturnValue;
+}
+
 FVector UZombieAgentBrainComponent::GetRandomExploreLocation() const
 {
 	const FVector CurrentLocation = GetOwner()->GetActorLocation();
@@ -373,25 +475,6 @@ FVector UZombieAgentBrainComponent::GetRandomExploreLocation() const
 	).GetSafeNormal();
 
 	return CurrentLocation + RandomDirection * ExploreRadius;
-}
-
-FString UZombieAgentBrainComponent::GetStateName() const
-{
-	switch (CurrentState)
-	{
-	case EZombieAgentState::Explore:
-		return "Explore";
-	case EZombieAgentState::SeekItem:
-		return "SeekItem";
-	case EZombieAgentState::Flee:
-		return "Flee";
-	case EZombieAgentState::Fight:
-		return "Fight";
-	case EZombieAgentState::UseItem:
-		return "UseItem";
-	default:
-		return "Unknown";
-	}
 }
 
 FVector UZombieAgentBrainComponent::GetFleeLocation(AActor* ZombieActor) const
@@ -428,19 +511,13 @@ FVector UZombieAgentBrainComponent::GetFleeLocation(AActor* ZombieActor) const
 
 float UZombieAgentBrainComponent::ScoreFleeLocation(const FVector& Location) const
 {
-	if (!Perceptor)
-	{
-		return 0.f;
-	}
+	if (!Perceptor) return 0.f;
 
 	float Score = 0.f;
 
 	for (AActor* Zombie : Perceptor->SeenZombies)
 	{
-		if (!IsValid(Zombie))
-		{
-			continue;
-		}
+		if (!IsValid(Zombie)) continue;
 
 		const float DistanceToZombie = FVector::Dist(
 			Location,
@@ -451,4 +528,23 @@ float UZombieAgentBrainComponent::ScoreFleeLocation(const FVector& Location) con
 	}
 
 	return Score;
+}
+
+FString UZombieAgentBrainComponent::GetStateName() const
+{
+	switch (CurrentState)
+	{
+	case EZombieAgentState::Explore:
+		return "Explore";
+	case EZombieAgentState::SeekItem:
+		return "SeekItem";
+	case EZombieAgentState::Flee:
+		return "Flee";
+	case EZombieAgentState::Fight:
+		return "Fight";
+	case EZombieAgentState::UseItem:
+		return "UseItem";
+	default:
+		return "Unknown";
+	}
 }

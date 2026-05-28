@@ -36,13 +36,22 @@ private:
 	UPROPERTY()
 	UActorComponent* InventoryComponent = nullptr;
 
+	UPROPERTY()
+	UActorComponent* HealthComponent = nullptr;
+
+	UPROPERTY()
+	UActorComponent* StaminaComponent = nullptr;
+
 	float TimeSinceLastExploreMove = 0.f;
 	float ExploreMoveInterval = 3.f;
 	float ExploreRadius = 1200.f;
 
 	float ZombieDangerEnterRange = 700.f;
 	float ZombieDangerExitRange = 1200.f;
-	float FleeDistance = 1200.f;
+	float FleeDistance = 1600.f;
+
+	int LowHealthThreshold = 5;
+	float LowStaminaThreshold = 4.f;
 
 	void UpdateState();
 	void ExecuteCurrentState(float DeltaTime);
@@ -50,17 +59,25 @@ private:
 	void ExecuteExplore(float DeltaTime);
 	void ExecuteSeekItem();
 	void ExecuteFlee();
+	void ExecuteUseItem();
 
 	AActor* GetClosestItem() const;
 	AActor* GetClosestZombie() const;
 
-	UActorComponent* FindInventoryComponent() const;
+	UActorComponent* FindComponentByNamePart(const FString& NamePart) const;
 
 	bool TryPickupItem(AActor* ItemActor);
 	bool TryGrabItemInSlot(int32 SlotIndex, AActor* ItemActor);
 
+	bool ShouldUseItem() const;
+	bool TryUseInventoryItem();
+	bool TryUseItemInSlot(int32 SlotIndex);
+
 	float GetPickupRange() const;
 	int32 GetInventoryCapacity() const;
+
+	int GetCurrentHealth() const;
+	float GetCurrentStamina() const;
 
 	FVector GetRandomExploreLocation() const;
 	FVector GetFleeLocation(AActor* ZombieActor) const;
