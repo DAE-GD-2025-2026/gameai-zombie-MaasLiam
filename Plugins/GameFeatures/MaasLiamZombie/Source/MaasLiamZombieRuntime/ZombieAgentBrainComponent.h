@@ -28,6 +28,14 @@ public:
 private:
 	EZombieAgentState CurrentState = EZombieAgentState::Explore;
 
+	float TimeSinceLastExploreMove = 0.f;
+	float ExploreMoveInterval = 3.f;
+	float ExploreRadius = 1200.f;
+
 	void UpdateState();
+	void ExecuteCurrentState(float DeltaTime);
+	void ExecuteExplore(float DeltaTime);
+
+	FVector GetRandomExploreLocation() const;
 	FString GetStateName() const;
 };
