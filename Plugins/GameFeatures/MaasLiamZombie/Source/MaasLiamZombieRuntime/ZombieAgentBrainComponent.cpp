@@ -37,6 +37,30 @@ void UZombieAgentBrainComponent::TickComponent(
 
 void UZombieAgentBrainComponent::UpdateState()
 {
+	AActor* ClosestZombie = GetClosestZombie();
+
+	if (ClosestZombie)
+	{
+		const float ZombieDistance = FVector::Dist(
+			GetOwner()->GetActorLocation(),
+			ClosestZombie->GetActorLocation()
+		);
+
+		if (CurrentState == EZombieAgentState::Flee)
+		{
+			if (ZombieDistance <= ZombieDangerExitRange)
+			{
+				CurrentState = EZombieAgentState::Flee;
+				return;
+			}
+		}
+		else if (ZombieDistance <= ZombieDangerEnterRange)
+		{
+			CurrentState = EZombieAgentState::Flee;
+			return;
+		}
+	}
+
 	if (Perceptor && Perceptor->SeenItems.Num() > 0)
 	{
 		CurrentState = EZombieAgentState::SeekItem;
@@ -56,6 +80,10 @@ void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
 
 	case EZombieAgentState::SeekItem:
 		ExecuteSeekItem();
+		break;
+		
+	case EZombieAgentState::Flee:
+		ExecuteFlee();
 		break;
 
 	default:
@@ -119,6 +147,42 @@ void UZombieAgentBrainComponent::ExecuteSeekItem()
 	);
 }
 
+void UZombieAgentBrainComponent::ExecuteFlee()
+{
+	AActor* ClosestZombie = GetClosestZombie();
+
+	if (!ClosestZombie)
+	{
+		return;
+	}
+
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (!OwnerPawn) return;
+
+	AAIController* AIController = Cast<AAIController>(OwnerPawn->GetController());
+	if (!AIController) return;
+
+	const FVector FleeTarget = GetFleeLocation(ClosestZombie);
+
+	AIController->MoveToLocation(
+		FleeTarget,
+		100.f,
+		true,
+		true,
+		true,
+		false,
+		nullptr,
+		true
+	);
+
+	GEngine->AddOnScreenDebugMessage(
+		-1,
+		0.f,
+		FColor::Red,
+		TEXT("FLEEING FROM ZOMBIE")
+	);
+}
+
 AActor* UZombieAgentBrainComponent::GetClosestItem() const
 {
 	if (!Perceptor) return nullptr;
@@ -143,6 +207,40 @@ AActor* UZombieAgentBrainComponent::GetClosestItem() const
 	return ClosestItem;
 }
 
+AActor* UZombieAgentBrainComponent::GetClosestZombie() const
+{
+	if (!Perceptor)
+	{
+		return nullptr;
+	}
+
+	AActor* ClosestZombie = nullptr;
+	float ClosestDistance = FLT_MAX;
+
+	const FVector OwnerLocation = GetOwner()->GetActorLocation();
+
+	for (AActor* Zombie : Perceptor->SeenZombies)
+	{
+		if (!IsValid(Zombie))
+		{
+			continue;
+		}
+
+		const float Distance = FVector::Dist(
+			OwnerLocation,
+			Zombie->GetActorLocation()
+		);
+
+		if (Distance < ClosestDistance)
+		{
+			ClosestDistance = Distance;
+			ClosestZombie = Zombie;
+		}
+	}
+
+	return ClosestZombie;
+}
+
 UActorComponent* UZombieAgentBrainComponent::FindInventoryComponent() const
 {
 	TArray<UActorComponent*> Components;
@@ -165,7 +263,7 @@ bool UZombieAgentBrainComponent::TryPickupItem(AActor* ItemActor)
 
 	const float DistanceToItem = FVector::Dist(
 		GetOwner()->GetActorLocation(),
-		ItemActor->GetActorLocation()
+		ItemActor->GetActorLocation()	
 	);
 
 	const float AllowedPickupDistance = GetPickupRange() + 75.f;
@@ -294,4 +392,63 @@ FString UZombieAgentBrainComponent::GetStateName() const
 	default:
 		return "Unknown";
 	}
+}
+
+FVector UZombieAgentBrainComponent::GetFleeLocation(AActor* ZombieActor) const
+{
+	const FVector OwnerLocation = GetOwner()->GetActorLocation();
+
+	FVector BestLocation = OwnerLocation;
+	float BestScore = -FLT_MAX;
+
+	const int32 DirectionCount = 16;
+
+	for (int32 DirectionIndex = 0; DirectionIndex < DirectionCount; ++DirectionIndex)
+	{
+		const float Angle = (2.f * PI / DirectionCount) * DirectionIndex;
+
+		const FVector Direction = FVector(
+			FMath::Cos(Angle),
+			FMath::Sin(Angle),
+			0.f
+		);
+
+		const FVector CandidateLocation = OwnerLocation + Direction * FleeDistance;
+		const float CandidateScore = ScoreFleeLocation(CandidateLocation);
+
+		if (CandidateScore > BestScore)
+		{
+			BestScore = CandidateScore;
+			BestLocation = CandidateLocation;
+		}
+	}
+
+	return BestLocation;
+}
+
+float UZombieAgentBrainComponent::ScoreFleeLocation(const FVector& Location) const
+{
+	if (!Perceptor)
+	{
+		return 0.f;
+	}
+
+	float Score = 0.f;
+
+	for (AActor* Zombie : Perceptor->SeenZombies)
+	{
+		if (!IsValid(Zombie))
+		{
+			continue;
+		}
+
+		const float DistanceToZombie = FVector::Dist(
+			Location,
+			Zombie->GetActorLocation()
+		);
+
+		Score += DistanceToZombie;
+	}
+
+	return Score;
 }

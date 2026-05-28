@@ -22,11 +22,22 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 	if (!Actor) return;
 
 	FString ActorName = Actor->GetName();
+	
+	GEngine->AddOnScreenDebugMessage(
+	-1,
+	3.f,
+	FColor::White,
+	FString::Printf(
+		TEXT("Perceived actor: %s | Class: %s"),
+		*Actor->GetName(),
+		*Actor->GetClass()->GetName()
+	)
+);
 
 	// LOST SIGHT
 	if (!Stimulus.WasSuccessfullySensed())
 	{
-		SeenZombies.Remove(Actor);
+		//SeenZombies.Remove(Actor);
 		SeenItems.Remove(Actor);
 		SeenHouses.Remove(Actor);
 		SeenPurgeZones.Remove(Actor);
@@ -38,7 +49,7 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 	FString TypeString = "Unknown";
 
 	// ZOMBIES
-	if (ActorName.Contains("Zombie"))
+	if (ActorName.Contains("Zombie") || ActorName.Contains("Runner") || ActorName.Contains("Heavy") || ActorName.Contains("Normal"))
 	{
 		TypeString = "Zombie";
 		DebugColor = FColor::Red;
@@ -49,12 +60,7 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 		}
 	}
 	// ITEMS
-	else if (
-		ActorName.Contains("Food") ||
-		ActorName.Contains("Medkit") ||
-		ActorName.Contains("Pistol") ||
-		ActorName.Contains("Shotgun") ||
-		ActorName.Contains("Garbage"))
+	else if (ActorName.Contains("Food") || ActorName.Contains("Medkit") || ActorName.Contains("Pistol") || ActorName.Contains("Shotgun") || ActorName.Contains("Garbage"))
 	{
 		TypeString = "Item";
 		DebugColor = FColor::Green;
