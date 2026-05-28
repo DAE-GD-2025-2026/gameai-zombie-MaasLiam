@@ -14,6 +14,7 @@ void UZombieAgentBrainComponent::BeginPlay()
 	Super::BeginPlay();
 
 	Perceptor = GetOwner()->FindComponentByClass<UStudentPerceptor>();
+	InventoryComponent = FindInventoryComponent();
 }
 
 void UZombieAgentBrainComponent::TickComponent(
@@ -57,9 +58,6 @@ void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
 		ExecuteSeekItem();
 		break;
 
-	case EZombieAgentState::Flee:
-	case EZombieAgentState::Fight:
-	case EZombieAgentState::UseItem:
 	default:
 		break;
 	}
@@ -77,21 +75,13 @@ void UZombieAgentBrainComponent::ExecuteExplore(float DeltaTime)
 	TimeSinceLastExploreMove = 0.f;
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (!OwnerPawn)
-	{
-		return;
-	}
+	if (!OwnerPawn) return;
 
 	AAIController* AIController = Cast<AAIController>(OwnerPawn->GetController());
-	if (!AIController)
-	{
-		return;
-	}
-
-	const FVector TargetLocation = GetRandomExploreLocation();
+	if (!AIController) return;
 
 	AIController->MoveToLocation(
-		TargetLocation,
+		GetRandomExploreLocation(),
 		100.f,
 		true,
 		true,
@@ -100,77 +90,48 @@ void UZombieAgentBrainComponent::ExecuteExplore(float DeltaTime)
 		nullptr,
 		true
 	);
-
-	GEngine->AddOnScreenDebugMessage(
-		-1,
-		2.f,
-		FColor::Green,
-		TEXT("Explore: moving to random location")
-	);
 }
 
 void UZombieAgentBrainComponent::ExecuteSeekItem()
 {
 	AActor* ClosestItem = GetClosestItem();
+	if (!ClosestItem) return;
 
-	if (!ClosestItem)
+	if (TryPickupItem(ClosestItem))
 	{
 		return;
 	}
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (!OwnerPawn)
-	{
-		return;
-	}
+	if (!OwnerPawn) return;
 
 	AAIController* AIController = Cast<AAIController>(OwnerPawn->GetController());
-	if (!AIController)
-	{
-		return;
-	}
+	if (!AIController) return;
 
 	AIController->MoveToActor(
 		ClosestItem,
-		100.f,
+		25.f,
 		true,
 		true,
 		true,
 		nullptr,
 		true
 	);
-
-	GEngine->AddOnScreenDebugMessage(
-		-1,
-		1.f,
-		FColor::Orange,
-		TEXT("Seeking Item")
-	);
 }
 
 AActor* UZombieAgentBrainComponent::GetClosestItem() const
 {
-	if (!Perceptor)
-	{
-		return nullptr;
-	}
+	if (!Perceptor) return nullptr;
 
 	AActor* ClosestItem = nullptr;
 	float ClosestDistance = FLT_MAX;
-
 	const FVector OwnerLocation = GetOwner()->GetActorLocation();
 
 	for (AActor* Item : Perceptor->SeenItems)
 	{
-		if (!IsValid(Item))
-		{
-			continue;
-		}
+		if (!IsValid(Item)) continue;
 
-		const float Distance = FVector::Dist(
-			OwnerLocation,
-			Item->GetActorLocation()
-		);
+		const float Distance = FVector::Dist(OwnerLocation, Item->GetActorLocation());
 
 		if (Distance < ClosestDistance)
 		{
@@ -182,15 +143,130 @@ AActor* UZombieAgentBrainComponent::GetClosestItem() const
 	return ClosestItem;
 }
 
-FVector UZombieAgentBrainComponent::GetRandomExploreLocation() const
+UActorComponent* UZombieAgentBrainComponent::FindInventoryComponent() const
 {
-	const AActor* OwnerActor = GetOwner();
-	if (!OwnerActor)
+	TArray<UActorComponent*> Components;
+	GetOwner()->GetComponents(Components);
+
+	for (UActorComponent* Component : Components)
 	{
-		return FVector::ZeroVector;
+		if (Component && Component->GetName().Contains(TEXT("Inventory")))
+		{
+			return Component;
+		}
 	}
 
-	const FVector CurrentLocation = OwnerActor->GetActorLocation();
+	return nullptr;
+}
+
+bool UZombieAgentBrainComponent::TryPickupItem(AActor* ItemActor)
+{
+	if (!InventoryComponent || !ItemActor) return false;
+
+	const float DistanceToItem = FVector::Dist(
+		GetOwner()->GetActorLocation(),
+		ItemActor->GetActorLocation()
+	);
+
+	const float AllowedPickupDistance = GetPickupRange() + 75.f;
+
+	if (DistanceToItem > AllowedPickupDistance)
+	{
+		return false;
+	}
+
+	const int32 Capacity = GetInventoryCapacity();
+
+	for (int32 SlotIndex = 0; SlotIndex < Capacity; ++SlotIndex)
+	{
+		if (TryGrabItemInSlot(SlotIndex, ItemActor))
+		{
+			if (Perceptor)
+			{
+				Perceptor->SeenItems.Remove(ItemActor);
+			}
+
+			GEngine->AddOnScreenDebugMessage(
+				-1,
+				2.f,
+				FColor::Green,
+				FString::Printf(TEXT("Picked up item in slot %d"), SlotIndex)
+			);
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool UZombieAgentBrainComponent::TryGrabItemInSlot(int32 SlotIndex, AActor* ItemActor)
+{
+	if (!InventoryComponent) return false;
+
+	UFunction* GrabFunction = InventoryComponent->FindFunction(TEXT("GrabItem"));
+	if (!GrabFunction) return false;
+
+	struct FGrabItemParams
+	{
+		int32 SlotIdx;
+		AActor* Item;
+		bool ReturnValue;
+	};
+
+	FGrabItemParams Params;
+	Params.SlotIdx = SlotIndex;
+	Params.Item = ItemActor;
+	Params.ReturnValue = false;
+
+	InventoryComponent->ProcessEvent(GrabFunction, &Params);
+
+	return Params.ReturnValue;
+}
+
+float UZombieAgentBrainComponent::GetPickupRange() const
+{
+	if (!InventoryComponent) return 100.f;
+
+	UFunction* RangeFunction = InventoryComponent->FindFunction(TEXT("GetPickupRange"));
+	if (!RangeFunction) return 100.f;
+
+	struct FPickupRangeParams
+	{
+		float ReturnValue;
+	};
+
+	FPickupRangeParams Params;
+	Params.ReturnValue = 100.f;
+
+	InventoryComponent->ProcessEvent(RangeFunction, &Params);
+
+	return Params.ReturnValue;
+}
+
+int32 UZombieAgentBrainComponent::GetInventoryCapacity() const
+{
+	if (!InventoryComponent) return 5;
+
+	UFunction* CapacityFunction = InventoryComponent->FindFunction(TEXT("GetInventoryCapacity"));
+	if (!CapacityFunction) return 5;
+
+	struct FCapacityParams
+	{
+		int32 ReturnValue;
+	};
+
+	FCapacityParams Params;
+	Params.ReturnValue = 5;
+
+	InventoryComponent->ProcessEvent(CapacityFunction, &Params);
+
+	return Params.ReturnValue;
+}
+
+FVector UZombieAgentBrainComponent::GetRandomExploreLocation() const
+{
+	const FVector CurrentLocation = GetOwner()->GetActorLocation();
 
 	const FVector RandomDirection = FVector(
 		FMath::FRandRange(-1.f, 1.f),

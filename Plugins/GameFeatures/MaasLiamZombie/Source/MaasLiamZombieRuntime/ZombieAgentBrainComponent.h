@@ -33,18 +33,26 @@ private:
 	UPROPERTY()
 	UStudentPerceptor* Perceptor = nullptr;
 
+	UPROPERTY()
+	UActorComponent* InventoryComponent = nullptr;
+
 	float TimeSinceLastExploreMove = 0.f;
 	float ExploreMoveInterval = 3.f;
 	float ExploreRadius = 1200.f;
 
 	void UpdateState();
-
 	void ExecuteCurrentState(float DeltaTime);
 
 	void ExecuteExplore(float DeltaTime);
 	void ExecuteSeekItem();
 
 	AActor* GetClosestItem() const;
+	UActorComponent* FindInventoryComponent() const;
+
+	bool TryPickupItem(AActor* ItemActor);
+	bool TryGrabItemInSlot(int32 SlotIndex, AActor* ItemActor);
+	float GetPickupRange() const;
+	int32 GetInventoryCapacity() const;
 
 	FVector GetRandomExploreLocation() const;
 	FString GetStateName() const;

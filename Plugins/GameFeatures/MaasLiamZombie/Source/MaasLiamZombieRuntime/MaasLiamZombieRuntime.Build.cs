@@ -38,7 +38,8 @@ public class MaasLiamZombieRuntime : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-				"AIModule" // ... add private dependencies that you statically link with here ...	
+				"AIModule"
+				// ... add private dependencies that you statically link with here ...	
 			}
 			);
 		
