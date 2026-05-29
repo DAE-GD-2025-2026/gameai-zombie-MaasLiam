@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#include "StudentPerceptor.h"
+﻿#include "StudentPerceptor.h"
 
 UStudentPerceptor::UStudentPerceptor()
 {
@@ -17,27 +15,25 @@ void UStudentPerceptor::BeginPlay()
 	}
 }
 
+void UStudentPerceptor::TickComponent(
+	float DeltaTime,
+	ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	UpdateZombieMemory(DeltaTime);
+}
+
 void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
 	if (!Actor) return;
 
-	FString ActorName = Actor->GetName();
-	
-	GEngine->AddOnScreenDebugMessage(
-	-1,
-	3.f,
-	FColor::White,
-	FString::Printf(
-		TEXT("Perceived actor: %s | Class: %s"),
-		*Actor->GetName(),
-		*Actor->GetClass()->GetName()
-	)
-);
+	const FString ActorName = Actor->GetName();
+	const FString ClassName = Actor->GetClass()->GetName();
 
-	// LOST SIGHT
 	if (!Stimulus.WasSuccessfullySensed())
 	{
-		//SeenZombies.Remove(Actor);
 		SeenItems.Remove(Actor);
 		SeenHouses.Remove(Actor);
 		SeenPurgeZones.Remove(Actor);
@@ -48,19 +44,24 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 	FColor DebugColor = FColor::White;
 	FString TypeString = "Unknown";
 
-	// ZOMBIES
-	if (ActorName.Contains("Zombie") || ActorName.Contains("Runner") || ActorName.Contains("Heavy") || ActorName.Contains("Normal"))
+	if (IsZombieActor(Actor))
 	{
 		TypeString = "Zombie";
 		DebugColor = FColor::Red;
 
-		if (!SeenZombies.Contains(Actor))
-		{
-			SeenZombies.Add(Actor);
-		}
+		RememberZombie(Actor);
 	}
-	// ITEMS
-	else if (ActorName.Contains("Food") || ActorName.Contains("Medkit") || ActorName.Contains("Pistol") || ActorName.Contains("Shotgun") || ActorName.Contains("Garbage"))
+	else if (
+		ActorName.Contains(TEXT("Food")) ||
+		ActorName.Contains(TEXT("Medkit")) ||
+		ActorName.Contains(TEXT("Pistol")) ||
+		ActorName.Contains(TEXT("Shotgun")) ||
+		ActorName.Contains(TEXT("Garbage")) ||
+		ClassName.Contains(TEXT("Food")) ||
+		ClassName.Contains(TEXT("Medkit")) ||
+		ClassName.Contains(TEXT("Pistol")) ||
+		ClassName.Contains(TEXT("Shotgun")) ||
+		ClassName.Contains(TEXT("Garbage")))
 	{
 		TypeString = "Item";
 		DebugColor = FColor::Green;
@@ -70,8 +71,7 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 			SeenItems.Add(Actor);
 		}
 	}
-	// HOUSES
-	else if (ActorName.Contains("House"))
+	else if (ActorName.Contains(TEXT("House")) || ClassName.Contains(TEXT("House")))
 	{
 		TypeString = "House";
 		DebugColor = FColor::Blue;
@@ -81,8 +81,7 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 			SeenHouses.Add(Actor);
 		}
 	}
-	// PURGE ZONES
-	else if (ActorName.Contains("Purge"))
+	else if (ActorName.Contains(TEXT("Purge")) || ClassName.Contains(TEXT("Purge")))
 	{
 		TypeString = "PurgeZone";
 		DebugColor = FColor::Purple;
@@ -93,30 +92,74 @@ void UStudentPerceptor::OnPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 		}
 	}
 
-	FString DebugMessage = FString::Printf(
-		TEXT("Detected %s : %s"),
-		*TypeString,
-		*ActorName
-	);
-
 	GEngine->AddOnScreenDebugMessage(
 		-1,
-		2.f,
+		1.f,
 		DebugColor,
-		DebugMessage
+		FString::Printf(TEXT("Detected %s : %s"), *TypeString, *ActorName)
 	);
+}
 
-	// MEMORY DEBUG
-	GEngine->AddOnScreenDebugMessage(
-		-1,
-		2.f,
-		FColor::Yellow,
-		FString::Printf(
-			TEXT("Memory -> Zombies: %d | Items: %d | Houses: %d | Purge: %d"),
-			SeenZombies.Num(),
-			SeenItems.Num(),
-			SeenHouses.Num(),
-			SeenPurgeZones.Num()
-		)
-	);
+bool UStudentPerceptor::IsZombieActor(AActor* Actor) const
+{
+	if (!Actor) return false;
+
+	const FString ActorName = Actor->GetName();
+	const FString ClassName = Actor->GetClass()->GetName();
+
+	return
+		ActorName.Contains(TEXT("Zombie")) ||
+		ActorName.Contains(TEXT("Runner")) ||
+		ActorName.Contains(TEXT("Heavy")) ||
+		ActorName.Contains(TEXT("Normal")) ||
+		ClassName.Contains(TEXT("Zombie")) ||
+		ClassName.Contains(TEXT("Runner")) ||
+		ClassName.Contains(TEXT("Heavy")) ||
+		ClassName.Contains(TEXT("Normal"));
+}
+
+void UStudentPerceptor::RememberZombie(AActor* Zombie)
+{
+	if (!Zombie) return;
+
+	if (!SeenZombies.Contains(Zombie))
+	{
+		SeenZombies.Add(Zombie);
+	}
+
+	for (FZombieThreatMemory& Memory : ZombieMemories)
+	{
+		if (Memory.Zombie == Zombie)
+		{
+			Memory.TimeSinceLastSeen = 0.f;
+			return;
+		}
+	}
+
+	FZombieThreatMemory NewMemory;
+	NewMemory.Zombie = Zombie;
+	NewMemory.TimeSinceLastSeen = 0.f;
+	ZombieMemories.Add(NewMemory);
+}
+
+void UStudentPerceptor::UpdateZombieMemory(float DeltaTime)
+{
+	for (int32 Index = ZombieMemories.Num() - 1; Index >= 0; --Index)
+	{
+		FZombieThreatMemory& Memory = ZombieMemories[Index];
+
+		if (!IsValid(Memory.Zombie))
+		{
+			ZombieMemories.RemoveAt(Index);
+			continue;
+		}
+
+		Memory.TimeSinceLastSeen += DeltaTime;
+
+		if (Memory.TimeSinceLastSeen > ZombieMemoryDuration)
+		{
+			SeenZombies.Remove(Memory.Zombie);
+			ZombieMemories.RemoveAt(Index);
+		}
+	}
 }

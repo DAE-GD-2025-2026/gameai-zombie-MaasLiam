@@ -153,7 +153,7 @@ void UZombieAgentBrainComponent::ExecuteExplore(float DeltaTime)
 		return;
 	}
 
-	TimeSinceLastExploreMove = 0.f;
+	TimeSinceLastExploreMove = FMath::FRandRange(-1.5f, 0.f);
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
 	if (!OwnerPawn) return;

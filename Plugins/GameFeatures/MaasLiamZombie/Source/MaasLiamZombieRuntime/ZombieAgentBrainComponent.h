@@ -49,7 +49,7 @@ private:
 
 	float TimeSinceLastExploreMove = 0.f;
 	float ExploreMoveInterval = 3.f;
-	float ExploreRadius = 1200.f;
+	float ExploreRadius = 2200.f;
 
 	float ZombieDangerEnterRange = 700.f;
 	float ZombieDangerExitRange = 1200.f;
