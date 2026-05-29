@@ -115,4 +115,7 @@ private:
 	bool HasInventoryItemType(const FString& ItemType) const;
 	
 	bool HasHouseBeenSearched(AActor* House) const;
+	
+	int32 GetLowestInventoryPrioritySlot() const;
+	bool TryReplaceInventoryItem(AActor* NewItem);
 };

@@ -92,7 +92,7 @@ void UZombieAgentBrainComponent::UpdateState()
 		}
 	}
 
-	if (!IsInventoryFull() && GetBestItem())
+	if (GetBestItem())
 	{
 		CurrentState = EZombieAgentState::SeekItem;
 		return;
@@ -177,6 +177,14 @@ void UZombieAgentBrainComponent::ExecuteSeekItem()
 {
 	AActor* ClosestItem = GetBestItem();
 	if (!ClosestItem) return;
+	
+	if (IsInventoryFull())
+	{
+		if (TryReplaceInventoryItem(ClosestItem))
+		{
+			return;
+		}
+	}
 
 	if (TryPickupItem(ClosestItem))
 	{
@@ -715,7 +723,21 @@ float UZombieAgentBrainComponent::ScoreFleeLocation(const FVector& Location) con
 
 		Score += DistanceToZombie;
 	}
+	
+	for (AActor* PurgeZone : Perceptor->SeenPurgeZones)
+	{
+		if (!IsValid(PurgeZone)) continue;
 
+		const float DistanceToPurge = FVector::Dist(
+			Location,
+			PurgeZone->GetActorLocation()
+		);
+
+		Score += DistanceToPurge * 0.5f;
+	}
+
+	Score += FMath::FRandRange(0.f, 100.f);
+	
 	return Score;
 }
 
@@ -1029,4 +1051,116 @@ bool UZombieAgentBrainComponent::HasInventoryItemType(const FString& ItemType) c
 bool UZombieAgentBrainComponent::HasHouseBeenSearched(AActor* House) const
 {
 	return SearchedHouses.Contains(House);
+}
+
+int32 UZombieAgentBrainComponent::GetLowestInventoryPrioritySlot() const
+{
+	if (!InventoryComponent)
+	{
+		return INDEX_NONE;
+	}
+
+	UFunction* GetInventoryFunction = InventoryComponent->FindFunction(TEXT("GetInventory"));
+	if (!GetInventoryFunction)
+	{
+		return INDEX_NONE;
+	}
+
+	struct FGetInventoryParams
+	{
+		TArray<AActor*> ReturnValue;
+	};
+
+	FGetInventoryParams Params;
+	InventoryComponent->ProcessEvent(GetInventoryFunction, &Params);
+
+	int32 LowestSlot = INDEX_NONE;
+	int32 LowestPriority = 999;
+
+	for (int32 SlotIndex = 0; SlotIndex < Params.ReturnValue.Num(); ++SlotIndex)
+	{
+		AActor* Item = Params.ReturnValue[SlotIndex];
+
+		if (!Item)
+		{
+			continue;
+		}
+
+		const int32 Priority = GetItemPriority(Item);
+
+		if (Priority < LowestPriority)
+		{
+			LowestPriority = Priority;
+			LowestSlot = SlotIndex;
+		}
+	}
+
+	return LowestSlot;
+}
+
+bool UZombieAgentBrainComponent::TryReplaceInventoryItem(AActor* NewItem)
+{
+	if (!NewItem)
+	{
+		return false;
+	}
+
+	const int32 NewPriority = GetItemPriority(NewItem);
+
+	const int32 LowestSlot = GetLowestInventoryPrioritySlot();
+
+	if (LowestSlot == INDEX_NONE)
+	{
+		return false;
+	}
+
+	UFunction* GetInventoryFunction = InventoryComponent->FindFunction(TEXT("GetInventory"));
+
+	struct FGetInventoryParams
+	{
+		TArray<AActor*> ReturnValue;
+	};
+
+	FGetInventoryParams Params;
+	InventoryComponent->ProcessEvent(GetInventoryFunction, &Params);
+
+	if (!Params.ReturnValue.IsValidIndex(LowestSlot))
+	{
+		return false;
+	}
+
+	AActor* ExistingItem = Params.ReturnValue[LowestSlot];
+
+	if (!ExistingItem)
+	{
+		return false;
+	}
+
+	const int32 ExistingPriority = GetItemPriority(ExistingItem);
+
+	if (NewPriority <= ExistingPriority)
+	{
+		return false;
+	}
+
+	TryRemoveItemInSlot(LowestSlot);
+
+	if (TryGrabItemInSlot(LowestSlot, NewItem))
+	{
+		if (Perceptor)
+		{
+			Perceptor->SeenItems.Remove(NewItem);
+		}
+
+		GEngine->AddOnScreenDebugMessage(
+			-1,
+			2.f,
+			FColor::Orange,
+			TEXT("Replaced low priority inventory item")
+		);
+
+		return true;
+	}
+
+	return false;
 }
