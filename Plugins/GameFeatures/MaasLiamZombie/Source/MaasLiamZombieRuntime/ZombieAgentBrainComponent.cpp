@@ -53,6 +53,12 @@ void UZombieAgentBrainComponent::UpdateState()
 			GetOwner()->GetActorLocation(),
 			ClosestZombie->GetActorLocation()
 		);
+		
+		if (ZombieDistance <= ZombieFightRange)
+		{
+			CurrentState = EZombieAgentState::Fight;
+			return;
+		}
 
 		if (CurrentState == EZombieAgentState::Flee)
 		{
@@ -96,6 +102,10 @@ void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
 
 	case EZombieAgentState::UseItem:
 		ExecuteUseItem();
+		break;
+		
+	case EZombieAgentState::Fight:
+		ExecuteFight(DeltaTime);
 		break;
 
 	default:
@@ -666,4 +676,118 @@ FString UZombieAgentBrainComponent::GetStateName() const
 	default:
 		return "Unknown";
 	}
+}
+
+void UZombieAgentBrainComponent::ExecuteFight(float DeltaTime)
+{
+	TimeSinceLastWeaponUse += DeltaTime;
+
+	AActor* ClosestZombie = GetClosestZombie();
+	if (!ClosestZombie)
+	{
+		return;
+	}
+
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (!OwnerPawn)
+	{
+		return;
+	}
+
+	const FVector DirectionToZombie =
+		(ClosestZombie->GetActorLocation() - OwnerPawn->GetActorLocation()).GetSafeNormal();
+
+	OwnerPawn->SetActorRotation(DirectionToZombie.Rotation());
+
+	if (TimeSinceLastWeaponUse >= WeaponUseInterval)
+	{
+		TimeSinceLastWeaponUse = 0.f;
+
+		if (TryUseWeapon())
+		{
+			GEngine->AddOnScreenDebugMessage(
+				-1,
+				1.f,
+				FColor::Purple,
+				TEXT("FIGHT: used weapon")
+			);
+
+			return;
+		}
+	}
+	ExecuteFlee();
+}
+
+bool UZombieAgentBrainComponent::TryUseWeapon()
+{
+	const int32 Capacity = GetInventoryCapacity();
+
+	for (int32 SlotIndex = 0; SlotIndex < Capacity; ++SlotIndex)
+	{
+		if (
+			DoesInventorySlotContainItemType(SlotIndex, TEXT("Shotgun")) ||
+			DoesInventorySlotContainItemType(SlotIndex, TEXT("Pistol"))
+		)
+		{
+			const bool bUsedWeapon = TryUseItemInSlot(SlotIndex);
+
+			if (GetInventorySlotItemValue(SlotIndex) <= 0)
+			{
+				TryRemoveItemInSlot(SlotIndex);
+
+				GEngine->AddOnScreenDebugMessage(
+					-1,
+					2.f,
+					FColor::Red,
+					TEXT("Removed empty weapon")
+				);
+			}
+
+			return bUsedWeapon;
+		}
+	}
+
+	return false;
+}
+
+int32 UZombieAgentBrainComponent::GetInventorySlotItemValue(int32 SlotIndex) const
+{
+	if (!InventoryComponent) return 0;
+
+	UFunction* GetInventoryFunction = InventoryComponent->FindFunction(TEXT("GetInventory"));
+	if (!GetInventoryFunction) return 0;
+
+	struct FGetInventoryParams
+	{
+		TArray<AActor*> ReturnValue;
+	};
+
+	FGetInventoryParams Params;
+	InventoryComponent->ProcessEvent(GetInventoryFunction, &Params);
+
+	if (!Params.ReturnValue.IsValidIndex(SlotIndex))
+	{
+		return 0;
+	}
+
+	AActor* Item = Params.ReturnValue[SlotIndex];
+	if (!Item)
+	{
+		return 0;
+	}
+
+	UFunction* GetValueFunction = Item->FindFunction(TEXT("GetValue"));
+	if (!GetValueFunction) return 0;
+
+	struct FGetValueParams
+	{
+		int32 ReturnValue;
+	};
+
+	FGetValueParams ValueParams;
+	ValueParams.ReturnValue = 0;
+
+	Item->ProcessEvent(GetValueFunction, &ValueParams);
+
+	return ValueParams.ReturnValue;
 }

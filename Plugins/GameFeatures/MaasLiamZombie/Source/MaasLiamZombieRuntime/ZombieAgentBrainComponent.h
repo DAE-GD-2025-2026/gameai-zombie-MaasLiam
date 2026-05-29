@@ -49,6 +49,10 @@ private:
 	float ZombieDangerEnterRange = 700.f;
 	float ZombieDangerExitRange = 1200.f;
 	float FleeDistance = 1600.f;
+	
+	float ZombieFightRange = 350.f;
+	float TimeSinceLastWeaponUse = 0.f;
+	float WeaponUseInterval = 0.75f;
 
 	int LowHealthThreshold = 5;
 	float LowStaminaThreshold = 4.f;
@@ -59,6 +63,8 @@ private:
 	void ExecuteExplore(float DeltaTime);
 	void ExecuteSeekItem();
 	void ExecuteFlee();
+	void ExecuteFight(float DeltaTime);
+	bool TryUseWeapon();
 	void ExecuteUseItem();
 
 	AActor* GetBestItem() const;
@@ -78,6 +84,7 @@ private:
 
 	float GetPickupRange() const;
 	int32 GetInventoryCapacity() const;
+	int32 GetInventorySlotItemValue(int32 SlotIndex) const;
 
 	int GetCurrentHealth() const;
 	float GetCurrentStamina() const;
