@@ -407,6 +407,7 @@ bool UZombieAgentBrainComponent::TryUseInventoryItem()
 	{
 		if (TryUseItemInSlot(SlotIndex))
 		{
+			TryRemoveItemInSlot(SlotIndex);
 			return true;
 		}
 	}
@@ -432,6 +433,28 @@ bool UZombieAgentBrainComponent::TryUseItemInSlot(int32 SlotIndex)
 	Params.ReturnValue = false;
 
 	InventoryComponent->ProcessEvent(UseFunction, &Params);
+
+	return Params.ReturnValue;
+}
+
+bool UZombieAgentBrainComponent::TryRemoveItemInSlot(int32 SlotIndex)
+{
+	if (!InventoryComponent) return false;
+
+	UFunction* RemoveFunction = InventoryComponent->FindFunction(TEXT("RemoveItem"));
+	if (!RemoveFunction) return false;
+
+	struct FRemoveItemParams
+	{
+		int32 SlotIdx;
+		bool ReturnValue;
+	};
+
+	FRemoveItemParams Params;
+	Params.SlotIdx = SlotIndex;
+	Params.ReturnValue = false;
+
+	InventoryComponent->ProcessEvent(RemoveFunction, &Params);
 
 	return Params.ReturnValue;
 }

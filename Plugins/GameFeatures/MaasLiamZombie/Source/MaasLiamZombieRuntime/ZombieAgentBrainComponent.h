@@ -73,6 +73,7 @@ private:
 	bool ShouldUseItem() const;
 	bool TryUseInventoryItem();
 	bool TryUseItemInSlot(int32 SlotIndex);
+	bool TryRemoveItemInSlot(int32 SlotIndex);
 
 	float GetPickupRange() const;
 	int32 GetInventoryCapacity() const;
