@@ -13,7 +13,8 @@ enum class EZombieAgentState : uint8
 	SeekItem UMETA(DisplayName = "Seek Item"),
 	Flee UMETA(DisplayName = "Flee"),
 	Fight UMETA(DisplayName = "Fight"),
-	UseItem UMETA(DisplayName = "Use Item")
+	UseItem UMETA(DisplayName = "Use Item"),
+	SearchHouse UMETA(DisplayName = "Search House")
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -56,6 +57,8 @@ private:
 
 	int LowHealthThreshold = 5;
 	float LowStaminaThreshold = 4.f;
+	
+	float HouseSearchAcceptanceRadius = 150.f;
 
 	void UpdateState();
 	void ExecuteCurrentState(float DeltaTime);
@@ -94,4 +97,8 @@ private:
 	float ScoreFleeLocation(const FVector& Location) const;
 
 	FString GetStateName() const;
+	void ExecuteSearchHouse();
+	AActor* GetClosestHouse() const;
+	
+	bool IsInventoryFull() const;
 };

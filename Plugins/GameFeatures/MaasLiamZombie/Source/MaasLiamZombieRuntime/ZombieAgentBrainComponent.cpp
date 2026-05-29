@@ -75,9 +75,15 @@ void UZombieAgentBrainComponent::UpdateState()
 		}
 	}
 
-	if (GetBestItem())
+	if (!IsInventoryFull() && GetBestItem())
 	{
 		CurrentState = EZombieAgentState::SeekItem;
+		return;
+	}
+	
+	if (GetClosestHouse())
+	{
+		CurrentState = EZombieAgentState::SearchHouse;
 		return;
 	}
 
@@ -106,6 +112,10 @@ void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
 		
 	case EZombieAgentState::Fight:
 		ExecuteFight(DeltaTime);
+		break;
+		
+	case EZombieAgentState::SearchHouse:
+		ExecuteSearchHouse();
 		break;
 
 	default:
@@ -553,6 +563,32 @@ int32 UZombieAgentBrainComponent::GetInventoryCapacity() const
 	return Params.ReturnValue;
 }
 
+bool UZombieAgentBrainComponent::IsInventoryFull() const
+{
+	if (!InventoryComponent) return true;
+
+	UFunction* GetInventoryFunction = InventoryComponent->FindFunction(TEXT("GetInventory"));
+	if (!GetInventoryFunction) return true;
+
+	struct FGetInventoryParams
+	{
+		TArray<AActor*> ReturnValue;
+	};
+
+	FGetInventoryParams Params;
+	InventoryComponent->ProcessEvent(GetInventoryFunction, &Params);
+
+	for (AActor* Item : Params.ReturnValue)
+	{
+		if (!Item)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 int UZombieAgentBrainComponent::GetCurrentHealth() const
 {
 	if (!HealthComponent) return 10;
@@ -673,6 +709,8 @@ FString UZombieAgentBrainComponent::GetStateName() const
 		return "Fight";
 	case EZombieAgentState::UseItem:
 		return "UseItem";
+	case EZombieAgentState::SearchHouse:
+		return "SearchHouse";
 	default:
 		return "Unknown";
 	}
@@ -790,4 +828,80 @@ int32 UZombieAgentBrainComponent::GetInventorySlotItemValue(int32 SlotIndex) con
 	Item->ProcessEvent(GetValueFunction, &ValueParams);
 
 	return ValueParams.ReturnValue;
+}
+
+void UZombieAgentBrainComponent::ExecuteSearchHouse()
+{
+	AActor* ClosestHouse = GetClosestHouse();
+	if (!ClosestHouse) return;
+	
+	const float DistanceToHouse = FVector::Dist(GetOwner()->GetActorLocation(), ClosestHouse->GetActorLocation());
+
+	if (DistanceToHouse <= HouseSearchAcceptanceRadius + 100.f)
+	{
+		if (Perceptor)
+		{
+			Perceptor->SeenHouses.Remove(ClosestHouse);
+		}
+
+		GEngine->AddOnScreenDebugMessage(
+			-1,
+			2.f,
+			FColor::Blue,
+			TEXT("Finished searching house")
+		);
+
+		return;
+	}
+
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (!OwnerPawn) return;
+
+	AAIController* AIController = Cast<AAIController>(OwnerPawn->GetController());
+	if (!AIController) return;
+
+	AIController->MoveToActor(
+		ClosestHouse,
+		HouseSearchAcceptanceRadius,
+		true,
+		true,
+		true,
+		nullptr,
+		true
+	);
+
+	GEngine->AddOnScreenDebugMessage(
+		-1,
+		1.f,
+		FColor::Blue,
+		TEXT("Searching house")
+	);
+}
+
+AActor* UZombieAgentBrainComponent::GetClosestHouse() const
+{
+	if (!Perceptor) return nullptr;
+
+	AActor* ClosestHouse = nullptr;
+	float ClosestDistance = FLT_MAX;
+
+	const FVector OwnerLocation = GetOwner()->GetActorLocation();
+
+	for (AActor* House : Perceptor->SeenHouses)
+	{
+		if (!IsValid(House)) continue;
+
+		const float Distance = FVector::Dist(
+			OwnerLocation,
+			House->GetActorLocation()
+		);
+
+		if (Distance < ClosestDistance)
+		{
+			ClosestDistance = Distance;
+			ClosestHouse = House;
+		}
+	}
+
+	return ClosestHouse;
 }
