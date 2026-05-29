@@ -14,7 +14,8 @@ enum class EZombieAgentState : uint8
 	Flee UMETA(DisplayName = "Flee"),
 	Fight UMETA(DisplayName = "Fight"),
 	UseItem UMETA(DisplayName = "Use Item"),
-	SearchHouse UMETA(DisplayName = "Search House")
+	SearchHouse UMETA(DisplayName = "Search House"),
+	AvoidPurge UMETA(DisplayName = "Avoid Purge")
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -59,6 +60,9 @@ private:
 	float LowStaminaThreshold = 4.f;
 	
 	float HouseSearchAcceptanceRadius = 150.f;
+	
+	float PurgeDangerRange = 900.f;
+	float PurgeFleeDistance = 1400.f;
 
 	void UpdateState();
 	void ExecuteCurrentState(float DeltaTime);
@@ -101,4 +105,9 @@ private:
 	AActor* GetClosestHouse() const;
 	
 	bool IsInventoryFull() const;
+	
+	void ExecuteAvoidPurge();
+	AActor* GetClosestPurgeZone() const;
+	FVector GetPurgeAvoidanceLocation(AActor* PurgeZone) const;
+	bool HasInventoryItemType(const FString& ItemType) const;
 };

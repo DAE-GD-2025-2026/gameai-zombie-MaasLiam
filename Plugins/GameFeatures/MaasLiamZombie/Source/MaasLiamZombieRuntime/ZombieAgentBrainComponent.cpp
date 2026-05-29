@@ -74,6 +74,22 @@ void UZombieAgentBrainComponent::UpdateState()
 			return;
 		}
 	}
+	
+	AActor* ClosestPurgeZone = GetClosestPurgeZone();
+
+	if (ClosestPurgeZone)
+	{
+		const float PurgeDistance = FVector::Dist(
+			GetOwner()->GetActorLocation(),
+			ClosestPurgeZone->GetActorLocation()
+		);
+
+		if (PurgeDistance <= PurgeDangerRange)
+		{
+			CurrentState = EZombieAgentState::AvoidPurge;
+			return;
+		}
+	}
 
 	if (!IsInventoryFull() && GetBestItem())
 	{
@@ -116,6 +132,10 @@ void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
 		
 	case EZombieAgentState::SearchHouse:
 		ExecuteSearchHouse();
+		break;
+		
+	case EZombieAgentState::AvoidPurge:
+		ExecuteAvoidPurge();
 		break;
 
 	default:
@@ -416,7 +436,10 @@ bool UZombieAgentBrainComponent::ShouldUseItem() const
 	const int CurrentHealth = GetCurrentHealth();
 	const float CurrentStamina = GetCurrentStamina();
 
-	return CurrentHealth <= LowHealthThreshold || CurrentStamina <= LowStaminaThreshold;
+	const bool bCanHeal = CurrentHealth <= LowHealthThreshold && HasInventoryItemType(TEXT("Medkit"));
+	const bool bCanRestoreStamina = CurrentStamina <= LowStaminaThreshold && HasInventoryItemType(TEXT("Food"));
+
+	return bCanHeal || bCanRestoreStamina;
 }
 
 bool UZombieAgentBrainComponent::TryUseInventoryItem()
@@ -904,4 +927,92 @@ AActor* UZombieAgentBrainComponent::GetClosestHouse() const
 	}
 
 	return ClosestHouse;
+}
+
+void UZombieAgentBrainComponent::ExecuteAvoidPurge()
+{
+	AActor* ClosestPurgeZone = GetClosestPurgeZone();
+	if (!ClosestPurgeZone) return;
+
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (!OwnerPawn) return;
+
+	AAIController* AIController = Cast<AAIController>(OwnerPawn->GetController());
+	if (!AIController) return;
+
+	AIController->MoveToLocation(
+		GetPurgeAvoidanceLocation(ClosestPurgeZone),
+		100.f,
+		true,
+		true,
+		true,
+		false,
+		nullptr,
+		true
+	);
+
+	GEngine->AddOnScreenDebugMessage(
+		-1,
+		1.f,
+		FColor::Purple,
+		TEXT("Avoiding purge zone")
+	);
+}
+
+AActor* UZombieAgentBrainComponent::GetClosestPurgeZone() const
+{
+	if (!Perceptor) return nullptr;
+
+	AActor* ClosestPurgeZone = nullptr;
+	float ClosestDistance = FLT_MAX;
+
+	const FVector OwnerLocation = GetOwner()->GetActorLocation();
+
+	for (AActor* PurgeZone : Perceptor->SeenPurgeZones)
+	{
+		if (!IsValid(PurgeZone)) continue;
+
+		const float Distance = FVector::Dist(
+			OwnerLocation,
+			PurgeZone->GetActorLocation()
+		);
+
+		if (Distance < ClosestDistance)
+		{
+			ClosestDistance = Distance;
+			ClosestPurgeZone = PurgeZone;
+		}
+	}
+
+	return ClosestPurgeZone;
+}
+
+FVector UZombieAgentBrainComponent::GetPurgeAvoidanceLocation(AActor* PurgeZone) const
+{
+	if (!PurgeZone)
+	{
+		return GetOwner()->GetActorLocation();
+	}
+
+	const FVector OwnerLocation = GetOwner()->GetActorLocation();
+
+	const FVector AwayDirection =
+		(OwnerLocation - PurgeZone->GetActorLocation()).GetSafeNormal();
+
+	return OwnerLocation + AwayDirection * PurgeFleeDistance;
+}
+
+bool UZombieAgentBrainComponent::HasInventoryItemType(const FString& ItemType) const
+{
+	const int32 Capacity = GetInventoryCapacity();
+
+	for (int32 SlotIndex = 0; SlotIndex < Capacity; ++SlotIndex)
+	{
+		if (DoesInventorySlotContainItemType(SlotIndex, ItemType))
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
