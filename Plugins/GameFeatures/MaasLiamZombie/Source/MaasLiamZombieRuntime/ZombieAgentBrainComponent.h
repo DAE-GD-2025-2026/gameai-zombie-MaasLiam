@@ -61,7 +61,8 @@ private:
 	void ExecuteFlee();
 	void ExecuteUseItem();
 
-	AActor* GetClosestItem() const;
+	AActor* GetBestItem() const;
+	int32 GetItemPriority(AActor* ItemActor) const;
 	AActor* GetClosestZombie() const;
 
 	UActorComponent* FindComponentByNamePart(const FString& NamePart) const;

@@ -69,7 +69,7 @@ void UZombieAgentBrainComponent::UpdateState()
 		}
 	}
 
-	if (Perceptor && Perceptor->SeenItems.Num() > 0)
+	if (GetBestItem())
 	{
 		CurrentState = EZombieAgentState::SeekItem;
 		return;
@@ -134,7 +134,7 @@ void UZombieAgentBrainComponent::ExecuteExplore(float DeltaTime)
 
 void UZombieAgentBrainComponent::ExecuteSeekItem()
 {
-	AActor* ClosestItem = GetClosestItem();
+	AActor* ClosestItem = GetBestItem();
 	if (!ClosestItem) return;
 
 	if (TryPickupItem(ClosestItem))
@@ -202,28 +202,80 @@ void UZombieAgentBrainComponent::ExecuteUseItem()
 	}
 }
 
-AActor* UZombieAgentBrainComponent::GetClosestItem() const
+AActor* UZombieAgentBrainComponent::GetBestItem() const
 {
 	if (!Perceptor) return nullptr;
 
-	AActor* ClosestItem = nullptr;
-	float ClosestDistance = FLT_MAX;
+	AActor* BestItem = nullptr;
+	int32 BestPriority = 0;
+	float BestDistance = FLT_MAX;
+
 	const FVector OwnerLocation = GetOwner()->GetActorLocation();
 
 	for (AActor* Item : Perceptor->SeenItems)
 	{
 		if (!IsValid(Item)) continue;
 
-		const float Distance = FVector::Dist(OwnerLocation, Item->GetActorLocation());
+		const int32 Priority = GetItemPriority(Item);
 
-		if (Distance < ClosestDistance)
+		// Ignore garbage / unknown useless items
+		if (Priority <= 0)
 		{
-			ClosestDistance = Distance;
-			ClosestItem = Item;
+			continue;
+		}
+
+		const float Distance = FVector::Dist(
+			OwnerLocation,
+			Item->GetActorLocation()
+		);
+
+		if (
+			Priority > BestPriority ||
+			(Priority == BestPriority && Distance < BestDistance)
+		)
+		{
+			BestPriority = Priority;
+			BestDistance = Distance;
+			BestItem = Item;
 		}
 	}
 
-	return ClosestItem;
+	return BestItem;
+}
+
+int32 UZombieAgentBrainComponent::GetItemPriority(AActor* ItemActor) const
+{
+	if (!ItemActor) return 0;
+
+	const FString ItemName = ItemActor->GetName();
+	const FString ClassName = ItemActor->GetClass()->GetName();
+
+	if (ItemName.Contains(TEXT("Medkit")) || ClassName.Contains(TEXT("Medkit")))
+	{
+		return 4;
+	}
+
+	if (ItemName.Contains(TEXT("Food")) || ClassName.Contains(TEXT("Food")))
+	{
+		return 3;
+	}
+
+	if (
+		ItemName.Contains(TEXT("Shotgun")) ||
+		ClassName.Contains(TEXT("Shotgun")) ||
+		ItemName.Contains(TEXT("Pistol")) ||
+		ClassName.Contains(TEXT("Pistol"))
+	)
+	{
+		return 2;
+	}
+
+	if (ItemName.Contains(TEXT("Garbage")) || ClassName.Contains(TEXT("Garbage")))
+	{
+		return 0;
+	}
+
+	return 1;
 }
 
 AActor* UZombieAgentBrainComponent::GetClosestZombie() const
