@@ -39,12 +39,6 @@ void UZombieAgentBrainComponent::TickComponent(
 
 void UZombieAgentBrainComponent::UpdateState()
 {
-	if (ShouldUseItem())
-	{
-		CurrentState = EZombieAgentState::UseItem;
-		return;
-	}
-
 	AActor* ClosestZombie = GetClosestZombie();
 
 	if (ClosestZombie)
@@ -53,7 +47,7 @@ void UZombieAgentBrainComponent::UpdateState()
 			GetOwner()->GetActorLocation(),
 			ClosestZombie->GetActorLocation()
 		);
-		
+
 		if (ZombieDistance <= ZombieFightRange)
 		{
 			CurrentState = EZombieAgentState::Fight;
@@ -74,6 +68,13 @@ void UZombieAgentBrainComponent::UpdateState()
 			return;
 		}
 	}
+
+	if (ShouldUseItem())
+	{
+		CurrentState = EZombieAgentState::UseItem;
+		return;
+	}
+
 	
 	AActor* ClosestPurgeZone = GetClosestPurgeZone();
 
@@ -734,6 +735,8 @@ FString UZombieAgentBrainComponent::GetStateName() const
 		return "UseItem";
 	case EZombieAgentState::SearchHouse:
 		return "SearchHouse";
+	case EZombieAgentState::AvoidPurge:
+		return "AvoidPurge";
 	default:
 		return "Unknown";
 	}
@@ -862,6 +865,11 @@ void UZombieAgentBrainComponent::ExecuteSearchHouse()
 
 	if (DistanceToHouse <= HouseSearchAcceptanceRadius + 100.f)
 	{
+		if (!SearchedHouses.Contains(ClosestHouse))
+		{
+			SearchedHouses.Add(ClosestHouse);
+		}
+		
 		if (Perceptor)
 		{
 			Perceptor->SeenHouses.Remove(ClosestHouse);
@@ -913,6 +921,7 @@ AActor* UZombieAgentBrainComponent::GetClosestHouse() const
 	for (AActor* House : Perceptor->SeenHouses)
 	{
 		if (!IsValid(House)) continue;
+		if (HasHouseBeenSearched(House)) continue;
 
 		const float Distance = FVector::Dist(
 			OwnerLocation,
@@ -1015,4 +1024,9 @@ bool UZombieAgentBrainComponent::HasInventoryItemType(const FString& ItemType) c
 	}
 
 	return false;
+}
+
+bool UZombieAgentBrainComponent::HasHouseBeenSearched(AActor* House) const
+{
+	return SearchedHouses.Contains(House);
 }

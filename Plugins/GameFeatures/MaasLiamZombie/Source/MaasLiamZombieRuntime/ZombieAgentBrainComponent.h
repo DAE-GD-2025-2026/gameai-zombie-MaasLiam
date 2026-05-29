@@ -43,6 +43,9 @@ private:
 
 	UPROPERTY()
 	UActorComponent* StaminaComponent = nullptr;
+	
+	UPROPERTY()
+	TArray<AActor*> SearchedHouses;
 
 	float TimeSinceLastExploreMove = 0.f;
 	float ExploreMoveInterval = 3.f;
@@ -110,4 +113,6 @@ private:
 	AActor* GetClosestPurgeZone() const;
 	FVector GetPurgeAvoidanceLocation(AActor* PurgeZone) const;
 	bool HasInventoryItemType(const FString& ItemType) const;
+	
+	bool HasHouseBeenSearched(AActor* House) const;
 };
