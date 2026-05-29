@@ -403,12 +403,27 @@ bool UZombieAgentBrainComponent::TryUseInventoryItem()
 {
 	const int32 Capacity = GetInventoryCapacity();
 
+	const bool bNeedsHealth = GetCurrentHealth() <= LowHealthThreshold;
+	const bool bNeedsStamina = GetCurrentStamina() <= LowStaminaThreshold;
+
 	for (int32 SlotIndex = 0; SlotIndex < Capacity; ++SlotIndex)
 	{
-		if (TryUseItemInSlot(SlotIndex))
+		if (bNeedsHealth && DoesInventorySlotContainItemType(SlotIndex, TEXT("Medkit")))
 		{
-			TryRemoveItemInSlot(SlotIndex);
-			return true;
+			if (TryUseItemInSlot(SlotIndex))
+			{
+				TryRemoveItemInSlot(SlotIndex);
+				return true;
+			}
+		}
+
+		if (bNeedsStamina && DoesInventorySlotContainItemType(SlotIndex, TEXT("Food")))
+		{
+			if (TryUseItemInSlot(SlotIndex))
+			{
+				TryRemoveItemInSlot(SlotIndex);
+				return true;
+			}
 		}
 	}
 
@@ -457,6 +472,35 @@ bool UZombieAgentBrainComponent::TryRemoveItemInSlot(int32 SlotIndex)
 	InventoryComponent->ProcessEvent(RemoveFunction, &Params);
 
 	return Params.ReturnValue;
+}
+
+bool UZombieAgentBrainComponent::DoesInventorySlotContainItemType(int32 SlotIndex, const FString& ItemType) const
+{
+	if (!InventoryComponent) return false;
+
+	UFunction* GetInventoryFunction = InventoryComponent->FindFunction(TEXT("GetInventory"));
+	if (!GetInventoryFunction) return false;
+
+	struct FGetInventoryParams
+	{
+		TArray<AActor*> ReturnValue;
+	};
+
+	FGetInventoryParams Params;
+	InventoryComponent->ProcessEvent(GetInventoryFunction, &Params);
+
+	if (!Params.ReturnValue.IsValidIndex(SlotIndex))
+	{
+		return false;
+	}
+
+	AActor* Item = Params.ReturnValue[SlotIndex];
+	if (!Item)
+	{
+		return false;
+	}
+
+	return Item->GetName().Contains(ItemType) || Item->GetClass()->GetName().Contains(ItemType);
 }
 
 float UZombieAgentBrainComponent::GetPickupRange() const

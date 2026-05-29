@@ -74,6 +74,7 @@ private:
 	bool TryUseInventoryItem();
 	bool TryUseItemInSlot(int32 SlotIndex);
 	bool TryRemoveItemInSlot(int32 SlotIndex);
+	bool DoesInventorySlotContainItemType(int32 SlotIndex, const FString& ItemType) const;
 
 	float GetPickupRange() const;
 	int32 GetInventoryCapacity() const;
