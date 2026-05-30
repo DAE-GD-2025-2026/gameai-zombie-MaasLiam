@@ -1,0 +1,94 @@
+﻿#include "ZombieStateSelector.h"
+
+#include "ZombieInventoryHelper.h"
+#include "ZombieThreatHelper.h"
+#include "ZombieExplorationHelper.h"
+#include "ZombieSurvivorStatusHelper.h"
+
+EZombieAgentState FZombieStateSelector::SelectState(
+	EZombieAgentState CurrentState,
+	AActor* Owner,
+	UStudentPerceptor* Perceptor,
+	UActorComponent* InventoryComponent,
+	UActorComponent* HealthComponent,
+	UActorComponent* StaminaComponent,
+	const TArray<AActor*>& SearchedHouses,
+	float ZombieFightRange,
+	float ZombieDangerEnterRange,
+	float ZombieDangerExitRange,
+	float PurgeDangerRange,
+	int LowHealthThreshold,
+	float LowStaminaThreshold)
+{
+	if (!Owner)
+	{
+		return EZombieAgentState::Explore;
+	}
+
+	AActor* ClosestZombie = FZombieThreatHelper::GetClosestZombie(Perceptor, Owner);
+
+	if (ClosestZombie)
+	{
+		const float ZombieDistance = FVector::Dist(
+			Owner->GetActorLocation(),
+			ClosestZombie->GetActorLocation()
+		);
+
+		if (ZombieDistance <= ZombieFightRange)
+		{
+			return EZombieAgentState::Fight;
+		}
+
+		if (CurrentState == EZombieAgentState::Flee)
+		{
+			if (ZombieDistance <= ZombieDangerExitRange)
+			{
+				return EZombieAgentState::Flee;
+			}
+		}
+		else if (ZombieDistance <= ZombieDangerEnterRange)
+		{
+			return EZombieAgentState::Flee;
+		}
+	}
+
+	if (FZombieSurvivorStatusHelper::ShouldUseItem(
+		InventoryComponent,
+		HealthComponent,
+		StaminaComponent,
+		LowHealthThreshold,
+		LowStaminaThreshold))
+	{
+		return EZombieAgentState::UseItem;
+	}
+
+	AActor* ClosestPurgeZone = FZombieThreatHelper::GetClosestPurgeZone(Perceptor, Owner);
+
+	if (ClosestPurgeZone)
+	{
+		const float PurgeDistance = FVector::Dist(
+			Owner->GetActorLocation(),
+			ClosestPurgeZone->GetActorLocation()
+		);
+
+		if (PurgeDistance <= PurgeDangerRange)
+		{
+			return EZombieAgentState::AvoidPurge;
+		}
+	}
+
+	if (FZombieInventoryHelper::GetBestItem(Perceptor, Owner))
+	{
+		return EZombieAgentState::SeekItem;
+	}
+
+	if (FZombieExplorationHelper::GetClosestUnsearchedHouse(
+		Perceptor,
+		Owner,
+		SearchedHouses))
+	{
+		return EZombieAgentState::SearchHouse;
+	}
+
+	return EZombieAgentState::Explore;
+}
