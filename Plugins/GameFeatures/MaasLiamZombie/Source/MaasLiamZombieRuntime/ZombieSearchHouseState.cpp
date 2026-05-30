@@ -18,12 +18,17 @@ void FZombieSearchHouseState::Execute(AActor* Owner, UStudentPerceptor* Percepto
 
 	if (DistanceToHouse <= HouseSearchAcceptanceRadius + 100.f)
 	{
+		if (Perceptor && Perceptor->SeenItems.Num() > 0)
+		{
+			return;
+		}
+
 		if (!SearchedHouses.Contains(ClosestHouse))
 		{
 			SearchedHouses.Add(ClosestHouse);
 		}
-		
-		if (UZombieAgentBrainComponent* Brain = Cast<UZombieAgentBrainComponent>( Owner->GetComponentByClass(UZombieAgentBrainComponent::StaticClass())))
+
+		if (UZombieAgentBrainComponent* Brain = Cast<UZombieAgentBrainComponent>(Owner->GetComponentByClass(UZombieAgentBrainComponent::StaticClass())))
 		{
 			Brain->StartVillageSweep(ClosestHouse->GetActorLocation());
 		}

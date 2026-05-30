@@ -343,7 +343,17 @@ bool FZombieInventoryHelper::TryReplaceInventoryItem(UActorComponent* InventoryC
 	if (!ExistingItem) return false;
 	
 	const int32 ExistingPriority = GetItemPriority(ExistingItem);
-	if (NewPriority <= ExistingPriority) return false;
+	const bool bNewItemIsWeapon = NewItem->GetName().Contains(TEXT("Pistol")) || NewItem->GetName().Contains(TEXT("Shotgun")) || NewItem->GetClass()->GetName().Contains(TEXT("Pistol")) 
+										|| NewItem->GetClass()->GetName().Contains(TEXT("Shotgun"));
+	const bool bExistingItemIsWeapon = ExistingItem->GetName().Contains(TEXT("Pistol")) || ExistingItem->GetName().Contains(TEXT("Shotgun")) 
+										|| ExistingItem->GetClass()->GetName().Contains(TEXT("Pistol")) || ExistingItem->GetClass()->GetName().Contains(TEXT("Shotgun"));
+
+	const bool bWeaponAmmoReplacement = bNewItemIsWeapon && bExistingItemIsWeapon;
+
+	if (NewPriority <= ExistingPriority && !bWeaponAmmoReplacement)
+	{
+		return false;
+	}
 	
 	TryRemoveItemInSlot(InventoryComponent, LowestSlot);
 	if (TryGrabItemInSlot(InventoryComponent, LowestSlot, NewItem))
@@ -385,6 +395,14 @@ bool FZombieInventoryHelper::CanReplaceInventoryItem(UActorComponent* InventoryC
 	if (!ExistingItem) return false;
 
 	const int32 ExistingPriority = GetItemPriority(ExistingItem);
+
+	const bool bNewItemIsWeapon =NewItem->GetName().Contains(TEXT("Pistol")) || NewItem->GetName().Contains(TEXT("Shotgun")) || NewItem->GetClass()->GetName().Contains(TEXT("Pistol")) || NewItem->GetClass()->GetName().Contains(TEXT("Shotgun"));
+	const bool bExistingItemIsWeapon = ExistingItem->GetName().Contains(TEXT("Pistol")) || ExistingItem->GetName().Contains(TEXT("Shotgun")) || ExistingItem->GetClass()->GetName().Contains(TEXT("Pistol")) || ExistingItem->GetClass()->GetName().Contains(TEXT("Shotgun"));
+
+	if (bNewItemIsWeapon && bExistingItemIsWeapon)
+	{
+		return true;
+	}
 
 	return NewPriority > ExistingPriority;
 }

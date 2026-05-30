@@ -60,7 +60,7 @@ private:
 	float TimeSinceLastWeaponUse = 0.f;
 	float WeaponUseInterval = 0.75f;
 
-	int LowHealthThreshold = 5;
+	int LowHealthThreshold = 6;
 	float LowStaminaThreshold = 4.f;
 
 	float HouseSearchAcceptanceRadius = 150.f;
@@ -74,9 +74,11 @@ private:
 	FVector CurrentVillageSweepTarget = FVector::ZeroVector;
 
 	float VillageSweepTimeRemaining = 0.f;
+	float VillageSweepTargetTimeRemaining = 0.f;
 
 	float VillageSweepDuration = 10.f;
 	float VillageSweepRadius = 800.f;
+	float VillageSweepTargetDuration = 2.5f;
 
 	void UpdateState();
 	void ExecuteCurrentState(float DeltaTime);

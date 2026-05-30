@@ -24,6 +24,16 @@ EZombieAgentState FZombieStateSelector::SelectState(
 	{
 		return EZombieAgentState::Explore;
 	}
+	const float CurrentStamina = FZombieSurvivorStatusHelper::GetCurrentStamina(StaminaComponent);
+
+	const bool bCriticallyLowStamina = CurrentStamina <= 1.f;
+
+	const bool bHasFood = FZombieInventoryHelper::HasInventoryItemType(InventoryComponent, TEXT("Food"));
+
+	if (bCriticallyLowStamina && bHasFood)
+	{
+		return EZombieAgentState::UseItem;
+	}
 
 	AActor* ClosestZombie = FZombieThreatHelper::GetClosestZombie(Perceptor, Owner);
 
@@ -79,6 +89,7 @@ EZombieAgentState FZombieStateSelector::SelectState(
 	if (BestItem)
 	{
 		const bool bInventoryFull = FZombieInventoryHelper::IsInventoryFull(InventoryComponent);
+
 		const bool bCanReplace = FZombieInventoryHelper::CanReplaceInventoryItem(InventoryComponent, BestItem);
 
 		if (!bInventoryFull || bCanReplace)

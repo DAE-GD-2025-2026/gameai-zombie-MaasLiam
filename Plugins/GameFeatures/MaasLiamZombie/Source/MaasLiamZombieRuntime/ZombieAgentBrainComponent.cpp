@@ -34,6 +34,7 @@ void UZombieAgentBrainComponent::TickComponent(float DeltaTime, ELevelTick TickT
 	if (VillageSweepTimeRemaining > 0.f)
 	{
 		VillageSweepTimeRemaining -= DeltaTime;
+		VillageSweepTargetTimeRemaining -= DeltaTime;
 	}
 	
 	UpdateState();
@@ -68,6 +69,11 @@ void UZombieAgentBrainComponent::UpdateState()
 		LowHealthThreshold,
 		LowStaminaThreshold
 	);
+	
+	if (CurrentState == EZombieAgentState::SeekItem)
+	{
+		VillageSweepTimeRemaining = 0.f;
+	}
 }
 
 void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
@@ -113,10 +119,12 @@ void UZombieAgentBrainComponent::ExecuteExplore(float DeltaTime)
 	{
 		const float DistanceToSweepTarget = FVector::Dist(GetOwner()->GetActorLocation(), CurrentVillageSweepTarget);
 
-		if (DistanceToSweepTarget <= 150.f)
+		if (DistanceToSweepTarget <= 150.f || VillageSweepTargetTimeRemaining <= 0.f)
 		{
 			CurrentVillageSweepTarget = GetVillageSweepLocation();
+			VillageSweepTargetTimeRemaining = VillageSweepTargetDuration;
 		}
+
 		FZombieMovementHelper::MoveToLocation(GetOwner(), CurrentVillageSweepTarget, 100.f);
 
 		return;
@@ -197,4 +205,5 @@ void UZombieAgentBrainComponent::StartVillageSweep(const FVector& Location)
 	VillageSweepTimeRemaining = VillageSweepDuration;
 
 	CurrentVillageSweepTarget = GetVillageSweepLocation();
+	VillageSweepTargetTimeRemaining = VillageSweepTargetDuration;
 }
