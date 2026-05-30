@@ -3,6 +3,7 @@
 #include "StudentPerceptor.h"
 #include "ZombieExplorationHelper.h"
 #include "ZombieMovementHelper.h"
+#include "ZombieAgentBrainComponent.h"
 
 void FZombieSearchHouseState::Execute(AActor* Owner, UStudentPerceptor* Perceptor, TArray<AActor*>& SearchedHouses, float HouseSearchAcceptanceRadius)
 {
@@ -20,6 +21,11 @@ void FZombieSearchHouseState::Execute(AActor* Owner, UStudentPerceptor* Percepto
 		if (!SearchedHouses.Contains(ClosestHouse))
 		{
 			SearchedHouses.Add(ClosestHouse);
+		}
+		
+		if (UZombieAgentBrainComponent* Brain = Cast<UZombieAgentBrainComponent>( Owner->GetComponentByClass(UZombieAgentBrainComponent::StaticClass())))
+		{
+			Brain->StartVillageSweep(ClosestHouse->GetActorLocation());
 		}
 
 		if (Perceptor)

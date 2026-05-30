@@ -28,6 +28,7 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	void StartVillageSweep(const FVector& Location);
 
 private:
 	EZombieAgentState CurrentState = EZombieAgentState::Explore;
@@ -51,11 +52,11 @@ private:
 	float ExploreMoveInterval = 3.f;
 	float ExploreRadius = 2200.f;
 
-	float ZombieDangerEnterRange = 700.f;
-	float ZombieDangerExitRange = 1200.f;
+	float ZombieDangerEnterRange = 850.f;
+	float ZombieDangerExitRange = 1400.f;
 	float FleeDistance = 1600.f;
 
-	float ZombieFightRange = 350.f;
+	float ZombieFightRange = 450.f;
 	float TimeSinceLastWeaponUse = 0.f;
 	float WeaponUseInterval = 0.75f;
 
@@ -66,6 +67,16 @@ private:
 
 	float PurgeDangerRange = 900.f;
 	float PurgeFleeDistance = 1400.f;
+	
+	float MinimumSprintStamina = 2.f;
+	
+	FVector VillageSweepLocation = FVector::ZeroVector;
+	FVector CurrentVillageSweepTarget = FVector::ZeroVector;
+
+	float VillageSweepTimeRemaining = 0.f;
+
+	float VillageSweepDuration = 10.f;
+	float VillageSweepRadius = 800.f;
 
 	void UpdateState();
 	void ExecuteCurrentState(float DeltaTime);
@@ -77,6 +88,6 @@ private:
 	void ExecuteUseItem();
 	void ExecuteSearchHouse();
 	void ExecuteAvoidPurge();
-
 	FString GetStateName() const;
+	FVector GetVillageSweepLocation() const;
 };

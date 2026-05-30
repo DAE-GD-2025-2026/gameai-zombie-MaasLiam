@@ -2,7 +2,6 @@
 
 #include "StudentPerceptor.h"
 #include "ZombieThreatHelper.h"
-#include "ZombieExplorationHelper.h"
 #include "ZombieSurvivorStatusHelper.h"
 #include "ZombieMovementHelper.h"
 #include "ZombieStateSelector.h"
@@ -11,6 +10,7 @@
 #include "ZombieFleeState.h"
 #include "ZombieFightState.h"
 #include "ZombieSearchHouseState.h"
+#include  "ZombieSprintHelper.h"
 
 UZombieAgentBrainComponent::UZombieAgentBrainComponent()
 {
@@ -31,8 +31,17 @@ void UZombieAgentBrainComponent::TickComponent(float DeltaTime, ELevelTick TickT
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	if (VillageSweepTimeRemaining > 0.f)
+	{
+		VillageSweepTimeRemaining -= DeltaTime;
+	}
+	
 	UpdateState();
 	ExecuteCurrentState(DeltaTime);
+	
+	const bool bShouldSprint = CurrentState == EZombieAgentState::Flee || CurrentState == EZombieAgentState::AvoidPurge;
+
+	FZombieSprintHelper::UpdateSprint(GetOwner(), StaminaComponent, bShouldSprint, MinimumSprintStamina);
 
 	GEngine->AddOnScreenDebugMessage(
 		20,
@@ -100,6 +109,19 @@ void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
 
 void UZombieAgentBrainComponent::ExecuteExplore(float DeltaTime)
 {
+	if (VillageSweepTimeRemaining > 0.f)
+	{
+		const float DistanceToSweepTarget = FVector::Dist(GetOwner()->GetActorLocation(), CurrentVillageSweepTarget);
+
+		if (DistanceToSweepTarget <= 150.f)
+		{
+			CurrentVillageSweepTarget = GetVillageSweepLocation();
+		}
+		FZombieMovementHelper::MoveToLocation(GetOwner(), CurrentVillageSweepTarget, 100.f);
+
+		return;
+	}
+
 	FZombieExploreState::Execute(GetOwner(), TimeSinceLastExploreMove, ExploreMoveInterval, ExploreRadius);
 }
 
@@ -161,4 +183,18 @@ void UZombieAgentBrainComponent::ExecuteAvoidPurge()
 
 	FZombieMovementHelper::MoveToLocation(GetOwner(), FZombieThreatHelper::GetPurgeAvoidanceLocation(GetOwner(), ClosestPurgeZone, PurgeFleeDistance), 100.f);
 	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Purple, TEXT("Avoiding purge zone"));
+}
+
+FVector UZombieAgentBrainComponent::GetVillageSweepLocation() const
+{
+	const FVector RandomDirection = FVector(FMath::FRandRange(-1.f, 1.f), FMath::FRandRange(-1.f, 1.f), 0.f).GetSafeNormal();
+	return VillageSweepLocation + RandomDirection * VillageSweepRadius;
+}
+
+void UZombieAgentBrainComponent::StartVillageSweep(const FVector& Location)
+{
+	VillageSweepLocation = Location;
+	VillageSweepTimeRemaining = VillageSweepDuration;
+
+	CurrentVillageSweepTarget = GetVillageSweepLocation();
 }

@@ -30,14 +30,9 @@ EZombieAgentState FZombieStateSelector::SelectState(
 	if (ClosestZombie)
 	{
 		const float ZombieDistance = FVector::Dist(Owner->GetActorLocation(), ClosestZombie->GetActorLocation());
-
 		const bool bHasWeapon = FZombieInventoryHelper::HasInventoryItemType(InventoryComponent, TEXT("Pistol")) || FZombieInventoryHelper::HasInventoryItemType(InventoryComponent, TEXT("Shotgun"));
-
 		const bool bHealthyEnough = FZombieSurvivorStatusHelper::GetCurrentHealth(HealthComponent) > 6;
-
-		const bool bHasEnoughStamina = FZombieSurvivorStatusHelper::GetCurrentStamina(StaminaComponent) > 3.f;
-
-		const bool bCanFight = bHasWeapon && bHealthyEnough && bHasEnoughStamina;
+		const bool bCanFight = bHasWeapon && bHealthyEnough;
 
 		if (ZombieDistance <= ZombieFightRange && bCanFight)
 		{
