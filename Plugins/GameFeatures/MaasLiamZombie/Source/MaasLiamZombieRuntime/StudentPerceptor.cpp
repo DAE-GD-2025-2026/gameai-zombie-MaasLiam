@@ -156,7 +156,10 @@ void UStudentPerceptor::UpdateZombieMemory(float DeltaTime)
 
 		Memory.TimeSinceLastSeen += DeltaTime;
 
-		if (Memory.TimeSinceLastSeen > ZombieMemoryDuration)
+		const float DistanceToZombie = FVector::Dist(GetOwner()->GetActorLocation(), Memory.Zombie->GetActorLocation());
+		const bool bZombieStillNearby = DistanceToZombie <= 900.f;
+
+		if (Memory.TimeSinceLastSeen > ZombieMemoryDuration && !bZombieStillNearby)
 		{
 			SeenZombies.Remove(Memory.Zombie);
 			ZombieMemories.RemoveAt(Index);
