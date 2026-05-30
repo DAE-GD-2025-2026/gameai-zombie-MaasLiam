@@ -4,16 +4,9 @@
 #include "ZombieInventoryHelper.h"
 #include "ZombieMovementHelper.h"
 
-void FZombieSeekItemState::Execute(
-	AActor* Owner,
-	UStudentPerceptor* Perceptor,
-	UActorComponent* InventoryComponent)
+void FZombieSeekItemState::Execute(AActor* Owner, UStudentPerceptor* Perceptor, UActorComponent* InventoryComponent)
 {
-	AActor* ClosestItem =
-		FZombieInventoryHelper::GetBestItem(
-			Perceptor,
-			Owner
-		);
+	AActor* ClosestItem = FZombieInventoryHelper::GetBestItem(Perceptor, Owner);
 
 	if (!ClosestItem)
 	{
@@ -22,27 +15,23 @@ void FZombieSeekItemState::Execute(
 
 	if (FZombieInventoryHelper::IsInventoryFull(InventoryComponent))
 	{
-		if (FZombieInventoryHelper::TryReplaceInventoryItem(
-			InventoryComponent,
-			Perceptor,
-			ClosestItem))
+		if (FZombieInventoryHelper::TryReplaceInventoryItem(InventoryComponent, Perceptor, ClosestItem))
 		{
 			return;
 		}
+
+		if (Perceptor)
+		{
+			Perceptor->SeenItems.Remove(ClosestItem);
+		}
+
+		return;
 	}
 
-	if (FZombieInventoryHelper::TryPickupItem(
-		Owner,
-		InventoryComponent,
-		Perceptor,
-		ClosestItem))
+	if (FZombieInventoryHelper::TryPickupItem(Owner, InventoryComponent, Perceptor, ClosestItem))
 	{
 		return;
 	}
 
-	FZombieMovementHelper::MoveToActor(
-		Owner,
-		ClosestItem,
-		25.f
-	);
+	FZombieMovementHelper::MoveToActor(Owner, ClosestItem, 25.f);
 }

@@ -41,10 +41,7 @@ int32 FZombieInventoryHelper::GetItemPriority(AActor* ItemActor)
 	if (ItemName.Contains(TEXT("Medkit")) || ClassName.Contains(TEXT("Medkit"))) return 4;
 	if (ItemName.Contains(TEXT("Food")) || ClassName.Contains(TEXT("Food"))) return 3;
 
-	if (
-		ItemName.Contains(TEXT("Shotgun")) || ClassName.Contains(TEXT("Shotgun")) ||
-		ItemName.Contains(TEXT("Pistol")) || ClassName.Contains(TEXT("Pistol"))
-	)
+	if (ItemName.Contains(TEXT("Shotgun")) || ClassName.Contains(TEXT("Shotgun")) || ItemName.Contains(TEXT("Pistol")) || ClassName.Contains(TEXT("Pistol")))
 	{
 		return 2;
 	}
@@ -360,4 +357,34 @@ bool FZombieInventoryHelper::TryReplaceInventoryItem(UActorComponent* InventoryC
 	}
 	
 	return false;
+}
+
+bool FZombieInventoryHelper::CanReplaceInventoryItem(UActorComponent* InventoryComponent, AActor* NewItem)
+{
+	if (!InventoryComponent || !NewItem) return false;
+
+	const int32 NewPriority = GetItemPriority(NewItem);
+	const int32 LowestSlot = GetLowestInventoryPrioritySlot(InventoryComponent);
+
+	if (LowestSlot == INDEX_NONE) return false;
+
+	UFunction* GetInventoryFunction = InventoryComponent->FindFunction(TEXT("GetInventory"));
+	if (!GetInventoryFunction) return false;
+
+	struct FParams
+	{
+		TArray<AActor*> ReturnValue;
+	};
+
+	FParams Params;
+	InventoryComponent->ProcessEvent(GetInventoryFunction, &Params);
+
+	if (!Params.ReturnValue.IsValidIndex(LowestSlot)) return false;
+
+	AActor* ExistingItem = Params.ReturnValue[LowestSlot];
+	if (!ExistingItem) return false;
+
+	const int32 ExistingPriority = GetItemPriority(ExistingItem);
+
+	return NewPriority > ExistingPriority;
 }

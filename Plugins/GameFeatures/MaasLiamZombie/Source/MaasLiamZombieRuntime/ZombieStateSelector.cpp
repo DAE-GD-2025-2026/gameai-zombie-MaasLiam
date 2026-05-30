@@ -29,10 +29,7 @@ EZombieAgentState FZombieStateSelector::SelectState(
 
 	if (ClosestZombie)
 	{
-		const float ZombieDistance = FVector::Dist(
-			Owner->GetActorLocation(),
-			ClosestZombie->GetActorLocation()
-		);
+		const float ZombieDistance = FVector::Dist(Owner->GetActorLocation(), ClosestZombie->GetActorLocation());
 
 		if (ZombieDistance <= ZombieFightRange)
 		{
@@ -52,12 +49,7 @@ EZombieAgentState FZombieStateSelector::SelectState(
 		}
 	}
 
-	if (FZombieSurvivorStatusHelper::ShouldUseItem(
-		InventoryComponent,
-		HealthComponent,
-		StaminaComponent,
-		LowHealthThreshold,
-		LowStaminaThreshold))
+	if (FZombieSurvivorStatusHelper::ShouldUseItem(InventoryComponent, HealthComponent, StaminaComponent, LowHealthThreshold, LowStaminaThreshold))
 	{
 		return EZombieAgentState::UseItem;
 	}
@@ -66,10 +58,7 @@ EZombieAgentState FZombieStateSelector::SelectState(
 
 	if (ClosestPurgeZone)
 	{
-		const float PurgeDistance = FVector::Dist(
-			Owner->GetActorLocation(),
-			ClosestPurgeZone->GetActorLocation()
-		);
+		const float PurgeDistance = FVector::Dist(Owner->GetActorLocation(), ClosestPurgeZone->GetActorLocation());
 
 		if (PurgeDistance <= PurgeDangerRange)
 		{
@@ -77,15 +66,20 @@ EZombieAgentState FZombieStateSelector::SelectState(
 		}
 	}
 
-	if (FZombieInventoryHelper::GetBestItem(Perceptor, Owner))
+	AActor* BestItem = FZombieInventoryHelper::GetBestItem(Perceptor, Owner);
+
+	if (BestItem)
 	{
-		return EZombieAgentState::SeekItem;
+		const bool bInventoryFull = FZombieInventoryHelper::IsInventoryFull(InventoryComponent);
+		const bool bCanReplace = FZombieInventoryHelper::CanReplaceInventoryItem(InventoryComponent, BestItem);
+
+		if (!bInventoryFull || bCanReplace)
+		{
+			return EZombieAgentState::SeekItem;
+		}
 	}
 
-	if (FZombieExplorationHelper::GetClosestUnsearchedHouse(
-		Perceptor,
-		Owner,
-		SearchedHouses))
+	if (FZombieExplorationHelper::GetClosestUnsearchedHouse(Perceptor, Owner, SearchedHouses))
 	{
 		return EZombieAgentState::SearchHouse;
 	}

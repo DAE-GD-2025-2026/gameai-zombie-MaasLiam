@@ -25,4 +25,6 @@ public:
 
 	static int32 GetLowestInventoryPrioritySlot(UActorComponent* InventoryComponent);
 	static bool TryReplaceInventoryItem(UActorComponent* InventoryComponent, UStudentPerceptor* Perceptor, AActor* NewItem);
+	
+	static bool CanReplaceInventoryItem(UActorComponent* InventoryComponent, AActor* NewItem);
 };

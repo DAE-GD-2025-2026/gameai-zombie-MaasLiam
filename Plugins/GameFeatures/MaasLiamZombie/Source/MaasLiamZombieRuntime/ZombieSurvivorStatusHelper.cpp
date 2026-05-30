@@ -18,10 +18,7 @@ UActorComponent* FZombieSurvivorStatusHelper::FindComponentByNamePart(AActor* Ow
 			continue;
 		}
 
-		if (
-			Component->GetName().Contains(NamePart) ||
-			Component->GetClass()->GetName().Contains(NamePart)
-		)
+		if (Component->GetName().Contains(NamePart) || Component->GetClass()->GetName().Contains(NamePart))
 		{
 			return Component;
 		}
@@ -92,13 +89,9 @@ bool FZombieSurvivorStatusHelper::ShouldUseItem(
 	const int CurrentHealth = GetCurrentHealth(HealthComponent);
 	const float CurrentStamina = GetCurrentStamina(StaminaComponent);
 
-	const bool bCanHeal =
-		CurrentHealth <= LowHealthThreshold &&
-		FZombieInventoryHelper::HasInventoryItemType(InventoryComponent, TEXT("Medkit"));
+	const bool bCanHeal = CurrentHealth <= LowHealthThreshold && FZombieInventoryHelper::HasInventoryItemType(InventoryComponent, TEXT("Medkit"));
 
-	const bool bCanRestoreStamina =
-		CurrentStamina <= LowStaminaThreshold &&
-		FZombieInventoryHelper::HasInventoryItemType(InventoryComponent, TEXT("Food"));
+	const bool bCanRestoreStamina = CurrentStamina <= LowStaminaThreshold && FZombieInventoryHelper::HasInventoryItemType(InventoryComponent, TEXT("Food"));
 
 	return bCanHeal || bCanRestoreStamina;
 }
@@ -117,10 +110,7 @@ bool FZombieSurvivorStatusHelper::TryUseInventoryItem(
 
 	for (int32 SlotIndex = 0; SlotIndex < Capacity; ++SlotIndex)
 	{
-		if (
-			bNeedsHealth &&
-			FZombieInventoryHelper::DoesInventorySlotContainItemType(InventoryComponent, SlotIndex, TEXT("Medkit"))
-		)
+		if (bNeedsHealth && FZombieInventoryHelper::DoesInventorySlotContainItemType(InventoryComponent, SlotIndex, TEXT("Medkit")))
 		{
 			if (FZombieInventoryHelper::TryUseItemInSlot(InventoryComponent, SlotIndex))
 			{
@@ -129,10 +119,7 @@ bool FZombieSurvivorStatusHelper::TryUseInventoryItem(
 			}
 		}
 
-		if (
-			bNeedsStamina &&
-			FZombieInventoryHelper::DoesInventorySlotContainItemType(InventoryComponent, SlotIndex, TEXT("Food"))
-		)
+		if (bNeedsStamina && FZombieInventoryHelper::DoesInventorySlotContainItemType(InventoryComponent, SlotIndex, TEXT("Food")))
 		{
 			if (FZombieInventoryHelper::TryUseItemInSlot(InventoryComponent, SlotIndex))
 			{
