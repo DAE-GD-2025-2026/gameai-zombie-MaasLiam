@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "ZombieAgentBrainComponent.h"
+#include "ZombieItemMemoryHelper.h"
 
 class UStudentPerceptor;
 
@@ -16,6 +17,7 @@ public:
 		UActorComponent* HealthComponent,
 		UActorComponent* StaminaComponent,
 		const TArray<AActor*>& SearchedHouses,
+		const TArray<FRememberedItem>& RememberedItems,
 		float ZombieFightRange,
 		float ZombieDangerEnterRange,
 		float ZombieDangerExitRange,

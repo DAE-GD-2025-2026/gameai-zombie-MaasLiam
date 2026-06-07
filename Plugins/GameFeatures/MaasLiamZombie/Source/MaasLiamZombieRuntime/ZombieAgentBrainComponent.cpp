@@ -11,6 +11,7 @@
 #include "ZombieFightState.h"
 #include "ZombieSearchHouseState.h"
 #include  "ZombieSprintHelper.h"
+#include "ZombieSeekRememberedItemState.h"
 
 UZombieAgentBrainComponent::UZombieAgentBrainComponent()
 {
@@ -37,6 +38,7 @@ void UZombieAgentBrainComponent::TickComponent(float DeltaTime, ELevelTick TickT
 		VillageSweepTargetTimeRemaining -= DeltaTime;
 	}
 	
+	FZombieItemMemoryHelper::UpdateItemMemory(RememberedItems, Perceptor, DeltaTime, ItemMemoryDuration);
 	UpdateState();
 	ExecuteCurrentState(DeltaTime);
 	
@@ -54,21 +56,9 @@ void UZombieAgentBrainComponent::TickComponent(float DeltaTime, ELevelTick TickT
 
 void UZombieAgentBrainComponent::UpdateState()
 {
-	CurrentState = FZombieStateSelector::SelectState(
-		CurrentState,
-		GetOwner(),
-		Perceptor,
-		InventoryComponent,
-		HealthComponent,
-		StaminaComponent,
-		SearchedHouses,
-		ZombieFightRange,
-		ZombieDangerEnterRange,
-		ZombieDangerExitRange,
-		PurgeDangerRange,
-		LowHealthThreshold,
-		LowStaminaThreshold
-	);
+	CurrentState = FZombieStateSelector::SelectState(CurrentState, GetOwner(), Perceptor, InventoryComponent,
+		HealthComponent, StaminaComponent, SearchedHouses, RememberedItems, ZombieFightRange,
+		ZombieDangerEnterRange, ZombieDangerExitRange, PurgeDangerRange, LowHealthThreshold, LowStaminaThreshold);
 	
 	if (CurrentState == EZombieAgentState::SeekItem)
 	{
@@ -107,6 +97,10 @@ void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
 	case EZombieAgentState::AvoidPurge:
 		ExecuteAvoidPurge();
 		break;
+		
+	case EZombieAgentState::SeekRememberedItem:
+		ExecuteSeekRememberedItem();
+		break;
 
 	default:
 		break;
@@ -135,7 +129,7 @@ void UZombieAgentBrainComponent::ExecuteExplore(float DeltaTime)
 
 void UZombieAgentBrainComponent::ExecuteSeekItem()
 {
-	FZombieSeekItemState::Execute(GetOwner(), Perceptor, InventoryComponent);
+	FZombieSeekItemState::Execute(GetOwner(), Perceptor, RememberedItems, InventoryComponent);
 }
 
 void UZombieAgentBrainComponent::ExecuteFlee()
@@ -206,4 +200,9 @@ void UZombieAgentBrainComponent::StartVillageSweep(const FVector& Location)
 
 	CurrentVillageSweepTarget = GetVillageSweepLocation();
 	VillageSweepTargetTimeRemaining = VillageSweepTargetDuration;
+}
+
+void UZombieAgentBrainComponent::ExecuteSeekRememberedItem()
+{
+	FZombieSeekRememberedItemState::Execute(GetOwner(), Perceptor, RememberedItems, InventoryComponent, HealthComponent, StaminaComponent, LowHealthThreshold, LowStaminaThreshold);
 }

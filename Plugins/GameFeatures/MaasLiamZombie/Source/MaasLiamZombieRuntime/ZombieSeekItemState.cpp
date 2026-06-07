@@ -4,7 +4,7 @@
 #include "ZombieInventoryHelper.h"
 #include "ZombieMovementHelper.h"
 
-void FZombieSeekItemState::Execute(AActor* Owner, UStudentPerceptor* Perceptor, UActorComponent* InventoryComponent)
+void FZombieSeekItemState::Execute(AActor* Owner, UStudentPerceptor* Perceptor, TArray<FRememberedItem>& RememberedItems, UActorComponent* InventoryComponent)
 {
 	AActor* ClosestItem = FZombieInventoryHelper::GetBestItem(Perceptor, Owner);
 
@@ -17,6 +17,7 @@ void FZombieSeekItemState::Execute(AActor* Owner, UStudentPerceptor* Perceptor, 
 	{
 		if (FZombieInventoryHelper::TryReplaceInventoryItem(InventoryComponent, Perceptor, ClosestItem))
 		{
+			FZombieItemMemoryHelper::ForgetItem(RememberedItems, ClosestItem);
 			return;
 		}
 
@@ -30,6 +31,7 @@ void FZombieSeekItemState::Execute(AActor* Owner, UStudentPerceptor* Perceptor, 
 
 	if (FZombieInventoryHelper::TryPickupItem(Owner, InventoryComponent, Perceptor, ClosestItem))
 	{
+		FZombieItemMemoryHelper::ForgetItem(RememberedItems, ClosestItem);
 		return;
 	}
 

@@ -13,6 +13,7 @@ EZombieAgentState FZombieStateSelector::SelectState(
 	UActorComponent* HealthComponent,
 	UActorComponent* StaminaComponent,
 	const TArray<AActor*>& SearchedHouses,
+	const TArray<FRememberedItem>& RememberedItems,
 	float ZombieFightRange,
 	float ZombieDangerEnterRange,
 	float ZombieDangerExitRange,
@@ -96,6 +97,11 @@ EZombieAgentState FZombieStateSelector::SelectState(
 		{
 			return EZombieAgentState::SeekItem;
 		}
+	}
+	
+	if (FZombieItemMemoryHelper::GetBestRememberedItem(RememberedItems, Owner, InventoryComponent, HealthComponent, StaminaComponent, LowHealthThreshold, LowStaminaThreshold))
+	{
+		return EZombieAgentState::SeekRememberedItem;
 	}
 
 	if (FZombieExplorationHelper::GetClosestUnsearchedHouse(Perceptor, Owner, SearchedHouses))

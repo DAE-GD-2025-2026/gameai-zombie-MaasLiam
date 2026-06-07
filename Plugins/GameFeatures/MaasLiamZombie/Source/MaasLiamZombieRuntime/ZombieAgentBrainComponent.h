@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "ZombieItemMemoryHelper.h"
 #include "ZombieAgentBrainComponent.generated.h"
 
 class UStudentPerceptor;
@@ -15,7 +16,8 @@ enum class EZombieAgentState : uint8
 	Fight UMETA(DisplayName = "Fight"),
 	UseItem UMETA(DisplayName = "Use Item"),
 	SearchHouse UMETA(DisplayName = "Search House"),
-	AvoidPurge UMETA(DisplayName = "Avoid Purge")
+	AvoidPurge UMETA(DisplayName = "Avoid Purge"), 
+	SeekRememberedItem UMETA(DisplayName = "Seek Remembered Item")
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -64,6 +66,8 @@ private:
 	float LowStaminaThreshold = 4.f;
 
 	float HouseSearchAcceptanceRadius = 150.f;
+	TArray<FRememberedItem> RememberedItems;
+	float ItemMemoryDuration = 45.f;
 
 	float PurgeDangerRange = 900.f;
 	float PurgeFleeDistance = 1400.f;
@@ -90,6 +94,7 @@ private:
 	void ExecuteUseItem();
 	void ExecuteSearchHouse();
 	void ExecuteAvoidPurge();
+	void ExecuteSeekRememberedItem();
 	FString GetStateName() const;
 	FVector GetVillageSweepLocation() const;
 };
