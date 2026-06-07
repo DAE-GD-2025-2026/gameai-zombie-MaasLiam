@@ -3,7 +3,8 @@
 #include "ZombieExplorationHelper.h"
 #include "ZombieMovementHelper.h"
 
-void FZombieExploreState::Execute(AActor* Owner, float& TimeSinceLastExploreMove, float ExploreMoveInterval, float ExploreRadius)
+void FZombieExploreState::Execute(AActor* Owner, float& TimeSinceLastExploreMove, float ExploreMoveInterval, float ExploreRadius, 
+	TArray<FVector>& RecentlyExploredLocations, int32 MaxRecentExploreLocations, int32 ExploreCandidateCount)
 {
 	if (!Owner)
 	{
@@ -19,5 +20,14 @@ void FZombieExploreState::Execute(AActor* Owner, float& TimeSinceLastExploreMove
 
 	TimeSinceLastExploreMove = FMath::FRandRange(-1.5f, 0.f);
 
-	FZombieMovementHelper::MoveToLocation(Owner, FZombieExplorationHelper::GetRandomExploreLocation(Owner, ExploreRadius), 100.f);
+	const FVector ExploreLocation = FZombieExplorationHelper::GetBestExploreLocation(Owner, ExploreRadius, RecentlyExploredLocations, ExploreCandidateCount);
+
+	RecentlyExploredLocations.Add(ExploreLocation);
+
+	while (RecentlyExploredLocations.Num() > MaxRecentExploreLocations)
+	{
+		RecentlyExploredLocations.RemoveAt(0);
+	}
+
+	FZombieMovementHelper::MoveToLocation(Owner, ExploreLocation, 100.f);
 }

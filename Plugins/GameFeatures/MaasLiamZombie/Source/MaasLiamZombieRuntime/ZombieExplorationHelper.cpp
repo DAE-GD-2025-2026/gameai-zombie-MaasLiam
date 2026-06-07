@@ -13,6 +13,52 @@ FVector FZombieExplorationHelper::GetRandomExploreLocation(AActor* Owner, float 
 	return CurrentLocation + RandomDirection * ExploreRadius;
 }
 
+FVector FZombieExplorationHelper::GetBestExploreLocation(AActor* Owner, float ExploreRadius, const TArray<FVector>& RecentlyExploredLocations, int32 CandidateCount)
+{
+	if (!Owner)
+	{
+		return FVector::ZeroVector;
+	}
+
+	FVector BestLocation = Owner->GetActorLocation();
+	float BestScore = -FLT_MAX;
+
+	for (int32 CandidateIndex = 0; CandidateIndex < CandidateCount; ++CandidateIndex)
+	{
+		const FVector CandidateLocation = GetRandomExploreLocation(Owner, ExploreRadius);
+
+		const float CandidateScore = ScoreExploreLocation(CandidateLocation, RecentlyExploredLocations);
+
+		if (CandidateScore > BestScore)
+		{
+			BestScore = CandidateScore;
+			BestLocation = CandidateLocation;
+		}
+	}
+
+	return BestLocation;
+}
+
+float FZombieExplorationHelper::ScoreExploreLocation(const FVector& CandidateLocation, const TArray<FVector>& RecentlyExploredLocations)
+{
+	float Score = 0.f;
+
+	if (RecentlyExploredLocations.Num() == 0)
+	{
+		return FMath::FRandRange(0.f, 100.f);
+	}
+
+	for (const FVector& RecentLocation : RecentlyExploredLocations)
+	{
+		const float DistanceToRecentLocation = FVector::Dist(CandidateLocation, RecentLocation);
+		Score += DistanceToRecentLocation;
+	}
+
+	Score += FMath::FRandRange(0.f, 250.f);
+
+	return Score;
+}
+
 AActor* FZombieExplorationHelper::GetClosestUnsearchedHouse(UStudentPerceptor* Perceptor, AActor* Owner, const TArray<AActor*>& SearchedHouses)
 {
 	if (!Perceptor || !Owner)

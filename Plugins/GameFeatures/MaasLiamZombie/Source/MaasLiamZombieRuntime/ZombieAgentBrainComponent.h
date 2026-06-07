@@ -10,6 +10,7 @@ class UStudentPerceptor;
 UENUM(BlueprintType)
 enum class EZombieAgentState : uint8
 {
+	InitialScan UMETA(DisplayName = "Initial Scan"),
 	Explore UMETA(DisplayName = "Explore"),
 	SeekItem UMETA(DisplayName = "Seek Item"),
 	Flee UMETA(DisplayName = "Flee"),
@@ -33,7 +34,7 @@ public:
 	void StartVillageSweep(const FVector& Location);
 
 private:
-	EZombieAgentState CurrentState = EZombieAgentState::Explore;
+	EZombieAgentState CurrentState = EZombieAgentState::InitialScan;
 
 	UPROPERTY()
 	UStudentPerceptor* Perceptor = nullptr;
@@ -53,6 +54,13 @@ private:
 	float TimeSinceLastExploreMove = 0.f;
 	float ExploreMoveInterval = 3.f;
 	float ExploreRadius = 2200.f;
+	
+	TArray<FVector> RecentlyExploredLocations;
+	int32 MaxRecentExploreLocations = 8;
+	int32 ExploreCandidateCount = 10;
+	
+	float InitialScanTimeRemaining = 3.f;
+	float InitialScanRotationSpeed = 180.f;
 
 	float ZombieDangerEnterRange = 850.f;
 	float ZombieDangerExitRange = 1400.f;
@@ -95,6 +103,7 @@ private:
 	void ExecuteSearchHouse();
 	void ExecuteAvoidPurge();
 	void ExecuteSeekRememberedItem();
+	void ExecuteInitialScan(float DeltaTime);
 	FString GetStateName() const;
 	FVector GetVillageSweepLocation() const;
 };

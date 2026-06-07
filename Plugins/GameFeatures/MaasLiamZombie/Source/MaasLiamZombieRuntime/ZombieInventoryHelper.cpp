@@ -406,3 +406,32 @@ bool FZombieInventoryHelper::CanReplaceInventoryItem(UActorComponent* InventoryC
 
 	return NewPriority > ExistingPriority;
 }
+
+bool FZombieInventoryHelper::HasUsableWeapon(UActorComponent* InventoryComponent)
+{
+	if (!InventoryComponent)
+	{
+		return false;
+	}
+
+	const int32 Capacity = GetInventoryCapacity(InventoryComponent);
+
+	for (int32 SlotIndex = 0; SlotIndex < Capacity; ++SlotIndex)
+	{
+		const bool bIsWeapon = DoesInventorySlotContainItemType(InventoryComponent, SlotIndex, TEXT("Pistol")) || DoesInventorySlotContainItemType(InventoryComponent, SlotIndex, TEXT("Shotgun"));
+
+		if (!bIsWeapon)
+		{
+			continue;
+		}
+
+		const int32 WeaponValue = GetInventorySlotItemValue(InventoryComponent, SlotIndex);
+
+		if (WeaponValue > 0)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}

@@ -56,6 +56,12 @@ void UZombieAgentBrainComponent::TickComponent(float DeltaTime, ELevelTick TickT
 
 void UZombieAgentBrainComponent::UpdateState()
 {
+	if (InitialScanTimeRemaining > 0.f)
+	{
+		CurrentState = EZombieAgentState::InitialScan;
+		return;
+	}
+	
 	CurrentState = FZombieStateSelector::SelectState(CurrentState, GetOwner(), Perceptor, InventoryComponent,
 		HealthComponent, StaminaComponent, SearchedHouses, RememberedItems, ZombieFightRange,
 		ZombieDangerEnterRange, ZombieDangerExitRange, PurgeDangerRange, LowHealthThreshold, LowStaminaThreshold);
@@ -101,6 +107,10 @@ void UZombieAgentBrainComponent::ExecuteCurrentState(float DeltaTime)
 	case EZombieAgentState::SeekRememberedItem:
 		ExecuteSeekRememberedItem();
 		break;
+		
+	case EZombieAgentState::InitialScan:
+		ExecuteInitialScan(DeltaTime);
+		break;
 
 	default:
 		break;
@@ -124,7 +134,8 @@ void UZombieAgentBrainComponent::ExecuteExplore(float DeltaTime)
 		return;
 	}
 
-	FZombieExploreState::Execute(GetOwner(), TimeSinceLastExploreMove, ExploreMoveInterval, ExploreRadius);
+	FZombieExploreState::Execute(GetOwner(), TimeSinceLastExploreMove, ExploreMoveInterval, ExploreRadius,
+	RecentlyExploredLocations, MaxRecentExploreLocations, ExploreCandidateCount);
 }
 
 void UZombieAgentBrainComponent::ExecuteSeekItem()
@@ -163,6 +174,8 @@ FString UZombieAgentBrainComponent::GetStateName() const
 		return "SearchHouse";
 	case EZombieAgentState::AvoidPurge:
 		return "AvoidPurge";
+	case EZombieAgentState::InitialScan:
+		return "InitialScan";
 	default:
 		return "Unknown";
 	}
@@ -205,4 +218,17 @@ void UZombieAgentBrainComponent::StartVillageSweep(const FVector& Location)
 void UZombieAgentBrainComponent::ExecuteSeekRememberedItem()
 {
 	FZombieSeekRememberedItemState::Execute(GetOwner(), Perceptor, RememberedItems, InventoryComponent, HealthComponent, StaminaComponent, LowHealthThreshold, LowStaminaThreshold);
+}
+
+void UZombieAgentBrainComponent::ExecuteInitialScan(float DeltaTime)
+{
+	if (!GetOwner())
+	{
+		return;
+	}
+
+	InitialScanTimeRemaining -= DeltaTime;
+	const FRotator CurrentRotation = GetOwner()->GetActorRotation();
+	const FRotator NewRotation = FRotator(CurrentRotation.Pitch, CurrentRotation.Yaw + InitialScanRotationSpeed * DeltaTime, CurrentRotation.Roll);
+	GetOwner()->SetActorRotation(NewRotation);
 }

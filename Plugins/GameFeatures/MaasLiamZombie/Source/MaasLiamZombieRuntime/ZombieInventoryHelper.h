@@ -18,6 +18,7 @@ public:
 	static bool DoesInventorySlotContainItemType(UActorComponent* InventoryComponent, int32 SlotIndex, const FString& ItemType);
 	static bool HasInventoryItemType(UActorComponent* InventoryComponent, const FString& ItemType);
 	static bool IsInventoryFull(UActorComponent* InventoryComponent);
+	static bool HasUsableWeapon(UActorComponent* InventoryComponent);
 
 	static float GetPickupRange(UActorComponent* InventoryComponent);
 	static int32 GetInventoryCapacity(UActorComponent* InventoryComponent);
